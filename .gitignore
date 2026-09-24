@@ -1,0 +1,22 @@
+# Compilação e Binários MSVC / C
+*.obj
+*.exe
+*.pdb
+*.ilk
+bin/diagramabot.exe
+bin/*.pdb
+bin/*.ilk
+
+# Arquivos de teste temporários
+teste_fluxograma.*
+*.diag
+
+# IDEs e Editores
+.vscode/
+.vs/
+.idea/
+
+# Sistema
+Thumbs.db
+Desktop.ini
+.DS_Store

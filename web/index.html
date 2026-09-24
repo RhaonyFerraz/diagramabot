@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DiagramaBot — Editor de Fluxogramas em C + Web</title>
+  <meta name="description" content="Editor de diagramas e fluxogramas profissional no navegador. Crie, conecte e exporte fluxogramas com canvas infinito, zoom e exportação SVG/PNG." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Top Bar -->
+  <header id="topbar">
+    <div id="logo">
+      <div id="logo-icon">D</div>
+      <div id="logo-text">
+        <span id="logo-name">DiagramaBot</span>
+        <span id="logo-sub">C + Web</span>
+      </div>
+    </div>
+
+    <div id="topbar-actions">
+      <div class="btn-group">
+        <button class="btn" id="btn-new" title="Novo diagrama">Novo</button>
+        <button class="btn" id="btn-save" title="Salvar (Ctrl+S)">Salvar</button>
+        <button class="btn" id="btn-load" title="Abrir arquivo">Abrir</button>
+        <input type="file" id="file-input" accept=".diag,.json" style="display:none" />
+      </div>
+
+      <div class="separator"></div>
+
+      <div class="btn-group">
+        <button class="btn btn-emerald" id="btn-export-svg" title="Exportar SVG">Exp. SVG</button>
+        <button class="btn btn-teal" id="btn-export-png" title="Exportar PNG">Exp. PNG</button>
+      </div>
+
+      <div class="separator"></div>
+
+      <div class="btn-group">
+        <button class="btn btn-purple" id="btn-example1" title="Carregar Exemplo 1">Exemplo 1</button>
+        <button class="btn btn-indigo" id="btn-example2" title="Carregar Exemplo 2">Exemplo 2</button>
+      </div>
+
+      <div class="separator"></div>
+
+      <div class="btn-group">
+        <button class="btn" id="btn-undo" title="Desfazer (Ctrl+Z)">Undo</button>
+        <button class="btn" id="btn-redo" title="Refazer (Ctrl+Y)">Redo</button>
+      </div>
+
+      <div class="btn-group zoom-group">
+        <button class="btn icon-btn" id="btn-zoom-out" title="Zoom Out">−</button>
+        <button class="btn zoom-label" id="btn-zoom-reset" title="Resetar Zoom">100%</button>
+        <button class="btn icon-btn" id="btn-zoom-in" title="Zoom In">+</button>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn toggle-btn" id="btn-grid" title="Grade">Grid</button>
+        <button class="btn toggle-btn" id="btn-snap" title="Snap to Grid">Snap</button>
+      </div>
+
+      <button class="btn icon-btn" id="btn-help" title="Ajuda (F1)">?</button>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <div id="layout">
+    <!-- Left Sidebar -->
+    <aside id="sidebar-left">
+      <div class="sidebar-section">
+        <div class="sidebar-label">MODOS &amp; FERRAMENTAS</div>
+        <button class="tool-btn active" id="tool-select" data-tool="select">
+          <span class="tool-icon">▲</span> [V] Selecionar / Mover
+        </button>
+        <button class="tool-btn" id="tool-connect" data-tool="connect">
+          <span class="tool-icon">↗</span> [C] Criar Conexão
+        </button>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">ADICIONAR FORMAS</div>
+        <button class="shape-btn" data-shape="terminator">[1] Início / Fim</button>
+        <button class="shape-btn" data-shape="process">[2] Processo</button>
+        <button class="shape-btn" data-shape="decision">[3] Decisão</button>
+        <button class="shape-btn" data-shape="data">[4] Entrada / Saída</button>
+        <button class="shape-btn" data-shape="database">[5] Banco de Dados</button>
+        <button class="shape-btn" data-shape="subprocess">[6] Subprocesso</button>
+        <button class="shape-btn" data-shape="note">[7] Nota / Post-it</button>
+      </div>
+    </aside>
+
+    <!-- Canvas Container -->
+    <main id="canvas-container">
+      <canvas id="canvas"></canvas>
+
+      <!-- Inline text editor -->
+      <div id="text-editor" style="display:none">
+        <input type="text" id="text-input" maxlength="255" autocomplete="off" spellcheck="false" />
+      </div>
+
+      <!-- Toast notification -->
+      <div id="toast"></div>
+    </main>
+
+    <!-- Right Sidebar (Inspector) -->
+    <aside id="sidebar-right">
+      <div id="inspector-content">
+        <!-- Populated by JS -->
+      </div>
+    </aside>
+  </div>
+
+  <!-- Status Bar -->
+  <footer id="statusbar">
+    <span id="status-coords">X: 0  Y: 0</span>
+    <span id="status-tip">Clique duplo: Editar texto  |  Espaço + Arrastar: Mover tela  |  Del: Excluir  |  F1: Ajuda</span>
+    <span id="status-right">Zoom: 100%  |  Snap: ON  |  FPS: 60</span>
+  </footer>
+
+  <!-- Help Modal -->
+  <div id="help-overlay" style="display:none">
+    <div id="help-modal">
+      <div id="help-header">
+        <h2>Atalhos do DiagramaBot</h2>
+        <button id="help-close">✕</button>
+      </div>
+      <div id="help-divider"></div>
+      <div id="help-shortcuts">
+        <div class="shortcut-row"><span class="shortcut-key">Espaço + Arrastar / Botão Direito</span><span class="shortcut-desc">Mover a tela (Pan)</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">Scroll do Mouse</span><span class="shortcut-desc">Zoom in / Zoom out</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">Clique Duplo no Bloco / Conexão</span><span class="shortcut-desc">Editar texto inline</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">Del ou Backspace</span><span class="shortcut-desc">Excluir elemento selecionado</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">Ctrl + D</span><span class="shortcut-desc">Duplicar bloco selecionado</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">Ctrl + Z / Ctrl + Y</span><span class="shortcut-desc">Desfazer / Refazer alteração</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">Ctrl + S</span><span class="shortcut-desc">Salvar diagrama</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">Teclas 1 a 7</span><span class="shortcut-desc">Inserir formas rapidamente</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">Tecla V / C</span><span class="shortcut-desc">Modo Selecionar / Modo Conectar</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">Tecla G / S</span><span class="shortcut-desc">Alternar Grid / Alternar Snap</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">ESC</span><span class="shortcut-desc">Cancelar conexão ou fechar janela</span></div>
+      </div>
+      <button id="help-ok" class="btn btn-accent">Entendido</button>
+    </div>
+  </div>
+
+  <script src="diagram.js"></script>
+  <script src="renderer.js"></script>
+  <script src="storage.js"></script>
+  <script src="templates.js"></script>
+  <script src="ui.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
