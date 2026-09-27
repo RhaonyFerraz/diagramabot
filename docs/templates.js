@@ -16,13 +16,13 @@ const Templates = {
 
     const nWarn  = diagram.addNode(ShapeType.PROCESS,    480, 380, 150, 60, 'Avisar Cliente');
     if (nWarn) {
-      nWarn.fillColor   = { r: 225, g: 29,  b: 72,  a: 230 };
+      nWarn.fillColor   = { r: 244, g: 63,  b: 94,  a: 255 }; // Coral Rose
       nWarn.borderColor = { r: 254, g: 205, b: 211, a: 255 };
     }
 
     const nFail  = diagram.addNode(ShapeType.TERMINATOR, 480, 490, 140, 50, 'Encerrar Pedido');
     if (nFail) {
-      nFail.fillColor   = { r: 190, g: 18,  b: 60,  a: 230 };
+      nFail.fillColor   = { r: 225, g: 29,  b: 72,  a: 255 }; // Ruby Red
       nFail.borderColor = { r: 253, g: 164, b: 175, a: 255 };
     }
 

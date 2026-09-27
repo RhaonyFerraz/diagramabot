@@ -34,6 +34,7 @@
       <div class="btn-group">
         <button class="btn btn-emerald" id="btn-export-svg" title="Exportar SVG">Exp. SVG</button>
         <button class="btn btn-teal" id="btn-export-png" title="Exportar PNG">Exp. PNG</button>
+        <button class="btn btn-share" id="btn-share" title="Compartilhar diagrama instantaneamente via Link (URL)">🔗 Compartilhar</button>
       </div>
 
       <div class="separator"></div>
@@ -120,6 +121,37 @@
     <span id="status-tip">Clique duplo: Editar texto  |  Espaço + Arrastar: Mover tela  |  Del: Excluir  |  F1: Ajuda</span>
     <span id="status-right">Zoom: 100%  |  Snap: ON  |  FPS: 60</span>
   </footer>
+
+  <!-- Share Modal -->
+  <div id="share-overlay" class="modal-overlay" style="display:none">
+    <div id="share-modal" class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-badge-icon">🔗</span>
+          <div>
+            <h2>Compartilhar Diagrama</h2>
+            <p class="modal-subtitle">Qualquer pessoa com este link pode visualizar seu fluxograma instantaneamente</p>
+          </div>
+        </div>
+        <button id="share-close" class="modal-close-btn" title="Fechar">✕</button>
+      </div>
+      <div class="modal-divider"></div>
+      <div class="modal-body">
+        <label class="modal-label" for="share-url-input">Link exclusivo do seu diagrama:</label>
+        <div class="share-input-row">
+          <input type="text" id="share-url-input" readonly spellcheck="false" />
+          <button id="share-copy-btn" class="btn btn-accent">Copiar Link</button>
+        </div>
+        <div class="share-info-badge">
+          <span>⚡ <strong>100% Client-Side:</strong> Seu diagrama está compactado dentro do próprio link, sem necessidade de banco de dados ou cadastro!</span>
+        </div>
+        <div class="modal-actions-row">
+          <button id="share-copy-png-btn" class="btn btn-secondary">📋 Copiar Imagem (PNG)</button>
+          <button id="share-open-tab-btn" class="btn btn-secondary">↗ Testar em Nova Aba</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Help Modal -->
   <div id="help-overlay" style="display:none">

@@ -3,15 +3,22 @@
  */
 
 const PALETTE = [
-  { r: 37,  g: 99,  b: 235, a: 230 }, // Blue
-  { r: 16,  g: 185, b: 129, a: 230 }, // Emerald
-  { r: 217, g: 119, b: 6,   a: 230 }, // Amber
-  { r: 225, g: 29,  b: 72,  a: 230 }, // Rose
-  { r: 124, g: 58,  b: 237, a: 230 }, // Purple
-  { r: 13,  g: 148, b: 136, a: 230 }, // Teal
-  { r: 202, g: 138, b: 4,   a: 230 }, // Yellow
-  { r: 71,  g: 85,  b: 105, a: 230 }, // Slate
+  { r: 37,  g: 99,  b: 235, a: 255 }, // Blue
+  { r: 16,  g: 185, b: 129, a: 255 }, // Emerald
+  { r: 245, g: 158, b: 11,  a: 255 }, // Amber Gold
+  { r: 244, g: 63,  b: 94,  a: 255 }, // Coral Rose
+  { r: 139, g: 92,  b: 246, a: 255 }, // Violet / Purple
+  { r: 13,  g: 148, b: 136, a: 255 }, // Cyan / Teal
+  { r: 234, g: 179, b: 8,   a: 255 }, // Warm Post-it Yellow
+  { r: 51,  g: 65,  b: 85,  a: 255 }, // Deep Slate
+  { r: 255, g: 255, b: 255, a: 255 }, // ⬜ Branco
 ];
+
+// Returns true if color is "light" (needs dark text/border)
+function _isLightColor(c) {
+  const lum = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+  return lum > 185;
+}
 
 const SHAPE_NAMES = {
   [ShapeType.PROCESS]:    'Processo',
@@ -150,15 +157,28 @@ class UI {
       const sw = document.createElement('button');
       sw.className = 'color-swatch';
       sw.style.background = colorToCss(c);
+      // White swatch: show dark border so it's visible on dark UI
+      if (c.r === 255 && c.g === 255 && c.b === 255) {
+        sw.style.border = '2px solid #64748b';
+        sw.title = 'Branco';
+      }
       if (_colorMatch(c, node.fillColor)) sw.classList.add('selected');
       sw.addEventListener('click', () => {
-        node.fillColor   = { ...c };
-        node.borderColor = {
-          r: Math.min(255, Math.round(c.r * 1.3)),
-          g: Math.min(255, Math.round(c.g * 1.3)),
-          b: Math.min(255, Math.round(c.b * 1.3)),
-          a: 255,
-        };
+        node.fillColor = { ...c };
+        if (_isLightColor(c)) {
+          // Light fill → dark border + dark text
+          node.borderColor = { r: 100, g: 116, b: 139, a: 255 };
+          node.textColor   = { r: 15,  g: 23,  b: 42,  a: 255 };
+        } else {
+          // Normal: auto-lighter border + white text
+          node.borderColor = {
+            r: Math.min(255, Math.round(c.r * 1.35)),
+            g: Math.min(255, Math.round(c.g * 1.35)),
+            b: Math.min(255, Math.round(c.b * 1.35)),
+            a: 255,
+          };
+          node.textColor = { r: 255, g: 255, b: 255, a: 255 };
+        }
         palette.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
         sw.classList.add('selected');
         d._pushHistory();

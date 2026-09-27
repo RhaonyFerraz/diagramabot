@@ -36,8 +36,28 @@ class App {
     this._bindUI();
     this._bindCanvas();
     this._bindKeyboard();
-    Templates.loadDefaultFlowchart(this.diagram);
+    this._initDiagram();
     this._loop();
+  }
+
+  async _initDiagram() {
+    // Try to load from URL hash first (shared link)
+    const hash = window.location.hash;
+    if (hash && (hash.includes('share=') || hash.includes('diagram=') || hash.includes('data='))) {
+      const ok = await Storage.loadDiagramFromURLHash(this.diagram, hash);
+      if (ok) {
+        // Center camera on the loaded diagram
+        const bb = this.diagram.getBoundingBox(80);
+        const W  = this.canvas.parentElement.clientWidth  || window.innerWidth;
+        const H  = this.canvas.parentElement.clientHeight || window.innerHeight;
+        this.camera.zoom = Math.min(3, Math.max(0.25, Math.min((W - 80) / bb.w, (H - 80) / bb.h)));
+        this.camera.ox   = W * 0.5 - (bb.x + bb.w * 0.5) * this.camera.zoom;
+        this.camera.oy   = H * 0.5 - (bb.y + bb.h * 0.5) * this.camera.zoom;
+        this.diagram.setToast('Diagrama compartilhado carregado! ✅');
+        return;
+      }
+    }
+    Templates.loadDefaultFlowchart(this.diagram);
   }
 
   _setupCamera() {
@@ -538,6 +558,39 @@ class App {
       else this.diagram.setToast("Exportado: 'diagrama.png'!");
     });
 
+    // Share
+    document.getElementById('btn-share').addEventListener('click', () => this._openShareModal());
+    document.getElementById('share-close').addEventListener('click', () => this._closeShareModal());
+    document.getElementById('share-overlay').addEventListener('click', e => {
+      if (e.target === document.getElementById('share-overlay')) this._closeShareModal();
+    });
+    document.getElementById('share-copy-btn').addEventListener('click', () => {
+      const input = document.getElementById('share-url-input');
+      navigator.clipboard.writeText(input.value).then(() => {
+        const btn = document.getElementById('share-copy-btn');
+        btn.textContent = 'Copiado! ✅';
+        this.diagram.setToast('Link copiado para área de transferência!');
+        setTimeout(() => { btn.textContent = 'Copiar Link'; }, 2000);
+      }).catch(() => {
+        input.select();
+        document.execCommand('copy');
+        this.diagram.setToast('Link copiado!');
+      });
+    });
+    document.getElementById('share-copy-png-btn').addEventListener('click', async () => {
+      if (this.diagram.nodes.length === 0) {
+        this.diagram.setToast('Adicione blocos antes de copiar!');
+        return;
+      }
+      const ok = await Storage.copyPNGToClipboard(this.diagram, this.renderer);
+      if (ok) this.diagram.setToast('Imagem PNG copiada para área de transferência! 🖼️');
+      else     this.diagram.setToast('Não foi possível copiar a imagem.');
+    });
+    document.getElementById('share-open-tab-btn').addEventListener('click', () => {
+      const url = document.getElementById('share-url-input').value;
+      if (url) window.open(url, '_blank');
+    });
+
     // Examples
     document.getElementById('btn-example1').addEventListener('click', () => {
       Templates.loadDefaultFlowchart(this.diagram);
@@ -612,6 +665,39 @@ class App {
     this.canvas.style.cursor = tool === 'connect' ? 'crosshair' : 'default';
   }
 
+  async _openShareModal() {
+    if (this.diagram.nodes.length === 0) {
+      this.diagram.setToast('Adicione blocos ao diagrama antes de compartilhar!');
+      return;
+    }
+    const overlay = document.getElementById('share-overlay');
+    const input   = document.getElementById('share-url-input');
+    const copyBtn = document.getElementById('share-copy-btn');
+
+    input.value  = 'Gerando link…';
+    copyBtn.disabled = true;
+    overlay.style.display = 'flex';
+
+    try {
+      const { url, length } = await Storage.exportShareURL(this.diagram);
+      input.value  = url;
+      copyBtn.disabled = false;
+      copyBtn.textContent = 'Copiar Link';
+
+      // Warn if link is very long
+      if (length > 8000) {
+        this.diagram.setToast('Aviso: link muito longo — diagrama grande pode não abrir em alguns navegadores.');
+      }
+    } catch (err) {
+      console.error('Share error', err);
+      input.value = 'Erro ao gerar link.';
+    }
+  }
+
+  _closeShareModal() {
+    document.getElementById('share-overlay').style.display = 'none';
+  }
+
   _toggleHelp(show) {
     const overlay = document.getElementById('help-overlay');
     if (show === undefined) {
@@ -620,6 +706,7 @@ class App {
       overlay.style.display = show ? 'flex' : 'none';
     }
   }
+
 }
 
 // ── Bootstrap ──

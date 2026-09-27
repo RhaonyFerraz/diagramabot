@@ -60,68 +60,53 @@ class Renderer {
     ctx.fill();
   }
 
-  // ── NODE ──
+  // ── NODE (3D) ──
   drawNode(n, isSelected, isHovered, showPorts, hoveredPort, diagram) {
     const ctx  = this.ctx;
     const { x, y, w, h } = n;
 
-    // Shadow
-    ctx.save();
-    ctx.shadowColor   = 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur    = 10;
-    ctx.shadowOffsetX = 3;
-    ctx.shadowOffsetY = 4;
-
     let borderColor = colorToCss(n.borderColor);
     let bw = n.borderWidth;
 
-    if (isSelected) {
-      // Selection halo
-      ctx.restore();
-      ctx.save();
-      ctx.strokeStyle = 'rgba(59,130,246,0.4)';
-      ctx.lineWidth   = 3;
-      this._strokeShape(n, 4);
-      ctx.stroke();
+    // ── DEEP DROP SHADOW ──
+    ctx.save();
+    ctx.shadowColor   = 'rgba(0,0,0,0.60)';
+    ctx.shadowBlur    = 22;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 8;
+    ctx.fillStyle = colorToCss(n.fillColor);
+    this._fillShape(n);
+    ctx.fill();
+    ctx.restore();
 
-      borderColor = '#60a5fa';
-      bw = 3;
+    // ── SELECTION HALO ──
+    if (isSelected) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(99,179,255,0.45)';
+      ctx.lineWidth   = 6;
+      this._strokeShape(n, 5);
+      ctx.stroke();
+      ctx.restore();
+      borderColor = '#93c5fd';
+      bw = 2.5;
     } else if (isHovered) {
-      borderColor = '#ffffff';
+      borderColor = 'rgba(255,255,255,0.95)';
       bw = 2;
     }
 
-    ctx.restore();
-
-    // Shape fill
+    // ── MAIN FILL ──
     ctx.save();
     ctx.fillStyle   = colorToCss(n.fillColor);
-    ctx.strokeStyle = borderColor;
-    ctx.lineWidth   = bw;
-
     this._fillShape(n);
     ctx.fill();
-    this._strokeShape(n, 0);
-    ctx.stroke();
+    ctx.restore();
 
-    // Extra details for specific shapes
-    if (n.type === ShapeType.SUBPROCESS) {
-      const inset = 16;
-      ctx.beginPath();
-      ctx.moveTo(x + inset, y);
-      ctx.lineTo(x + inset, y + h);
-      ctx.moveTo(x + w - inset, y);
-      ctx.lineTo(x + w - inset, y + h);
-      ctx.strokeStyle = borderColor;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    }
-
+    // ── DATABASE top ellipse highlight ──
     if (n.type === ShapeType.DATABASE) {
       const eh = h * 0.22;
       const cx2 = x + w * 0.5;
-      // Top ellipse highlight
-      const lighter = lighten(n.fillColor, 0.15);
+      const lighter = lighten(n.fillColor, 0.22);
+      ctx.save();
       ctx.fillStyle = colorToCss(lighter);
       ctx.beginPath();
       ctx.ellipse(cx2, y + eh * 0.5, w * 0.5, eh * 0.5, 0, 0, Math.PI * 2);
@@ -129,22 +114,154 @@ class Renderer {
       ctx.strokeStyle = borderColor;
       ctx.lineWidth = bw;
       ctx.stroke();
+      ctx.restore();
     }
 
+    // ── NOTE fold corner ──
+    if (n.type === ShapeType.NOTE) {
+      const fold = Math.min(20, w * 0.13, h * 0.13);
+      const fc = n.fillColor;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x + w - fold, y + h - fold);
+      ctx.lineTo(x + w,        y + h - fold);
+      ctx.lineTo(x + w - fold, y + h);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(${Math.max(0,fc.r-70)},${Math.max(0,fc.g-70)},${Math.max(0,fc.b-70)},0.85)`;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // ── 3D GRADIENT OVERLAY (top highlight → bottom shadow) ──
+    ctx.save();
+    this._buildShapePath(n);
+    ctx.clip();
+    const grad3d = ctx.createLinearGradient(x, y, x, y + h);
+    grad3d.addColorStop(0,    'rgba(255,255,255,0.30)');
+    grad3d.addColorStop(0.22, 'rgba(255,255,255,0.10)');
+    grad3d.addColorStop(0.55, 'rgba(0,0,0,0.00)');
+    grad3d.addColorStop(1.0,  'rgba(0,0,0,0.28)');
+    ctx.fillStyle = grad3d;
+    this._buildShapePath(n);
+    ctx.fill();
     ctx.restore();
 
-    // Text
-    this.drawWrappedText(n.text, x, y, w, h, 16, colorToCss(n.textColor));
+    // ── BORDER ──
+    ctx.save();
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth   = bw;
+    this._strokeShape(n, 0);
+    ctx.stroke();
+    // SUBPROCESS inner bars
+    if (n.type === ShapeType.SUBPROCESS) {
+      const inset = 16;
+      ctx.beginPath();
+      ctx.moveTo(x + inset, y); ctx.lineTo(x + inset, y + h);
+      ctx.moveTo(x + w - inset, y); ctx.lineTo(x + w - inset, y + h);
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    ctx.restore();
 
-    // Ports
+    // ── TOP GLOSS LINE ──
+    ctx.save();
+    ctx.globalAlpha = 0.38;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth   = 1.5;
+    ctx.lineCap     = 'round';
+    this._drawTopGloss(n);
+    ctx.restore();
+
+    // ── TEXT ──
+    ctx.save();
+    ctx.shadowColor   = 'rgba(0,0,0,0.55)';
+    ctx.shadowBlur    = 4;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 1;
+    this.drawWrappedText(n.text, x, y, w, h, 16, colorToCss(n.textColor));
+    ctx.restore();
+
+    // ── PORTS ──
     if (showPorts || isHovered || isSelected) {
       this._drawPorts(n, hoveredPort, diagram);
     }
-
-    // Resize handles when selected
+    // ── RESIZE HANDLES ──
     if (isSelected) {
       this._drawResizeHandles(n);
     }
+  }
+
+  // Path builder for clipping/gradient overlay (mirrors _fillShape without ctx.beginPath)
+  _buildShapePath(n) {
+    const ctx = this.ctx;
+    const { x, y, w, h } = n;
+    ctx.beginPath();
+    switch (n.type) {
+      case ShapeType.PROCESS:    roundRect(ctx, x, y, w, h, Math.min(w, h) * 0.10); break;
+      case ShapeType.TERMINATOR: roundRect(ctx, x, y, w, h, h * 0.5); break;
+      case ShapeType.SUBPROCESS: roundRect(ctx, x, y, w, h, Math.min(w, h) * 0.08); break;
+      case ShapeType.DECISION: {
+        const cx = x + w * 0.5, cy = y + h * 0.5;
+        ctx.moveTo(cx, y); ctx.lineTo(x + w, cy);
+        ctx.lineTo(cx, y + h); ctx.lineTo(x, cy);
+        ctx.closePath(); break;
+      }
+      case ShapeType.DATA: {
+        const sl = w * 0.18;
+        ctx.moveTo(x + sl, y); ctx.lineTo(x + w, y);
+        ctx.lineTo(x + w - sl, y + h); ctx.lineTo(x, y + h);
+        ctx.closePath(); break;
+      }
+      case ShapeType.DATABASE: {
+        const eh = h * 0.22;
+        ctx.rect(x, y + eh * 0.5, w, h - eh); ctx.closePath();
+        ctx.beginPath();
+        ctx.ellipse(x + w * 0.5, y + h - eh * 0.5, w * 0.5, eh * 0.5, 0, 0, Math.PI * 2);
+        break;
+      }
+      case ShapeType.NOTE: {
+        const fold = Math.min(20, w * 0.13, h * 0.13);
+        ctx.moveTo(x, y); ctx.lineTo(x + w, y);
+        ctx.lineTo(x + w, y + h - fold);
+        ctx.lineTo(x + w - fold, y + h);
+        ctx.lineTo(x, y + h); ctx.closePath(); break;
+      }
+      default: roundRect(ctx, x, y, w, h, Math.min(w, h) * 0.10);
+    }
+  }
+
+  // Thin bright highlight stroke along the top edge of each shape
+  _drawTopGloss(n) {
+    const ctx = this.ctx;
+    const { x, y, w, h } = n;
+    const p = 3;
+    ctx.beginPath();
+    switch (n.type) {
+      case ShapeType.TERMINATOR: {
+        const r = h * 0.5;
+        ctx.arc(x + r, y + r, r - p, Math.PI, Math.PI * 1.5);
+        ctx.arc(x + w - r, y + r, r - p, Math.PI * 1.5, 0);
+        break;
+      }
+      case ShapeType.DECISION: {
+        const cx = x + w * 0.5;
+        ctx.moveTo(cx, y + p);
+        ctx.lineTo(x + w - p * 1.5, y + h * 0.5);
+        break;
+      }
+      case ShapeType.DATABASE: {
+        const eh = h * 0.22;
+        ctx.ellipse(x + w * 0.5, y + eh * 0.5, w * 0.5 - p, eh * 0.5 - p * 0.4, 0, Math.PI, 0);
+        break;
+      }
+      default: {
+        const r = Math.min(w, h) * 0.10;
+        ctx.moveTo(x + r + p, y + p);
+        ctx.lineTo(x + w - r - p, y + p);
+        break;
+      }
+    }
+    ctx.stroke();
   }
 
   _fillShape(n) {

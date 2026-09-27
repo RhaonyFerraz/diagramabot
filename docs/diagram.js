@@ -24,15 +24,15 @@ const LINE_BEZIER = 'bezier';
 // Default colors per shape (RGBA)
 function defaultFillColor(type) {
   switch (type) {
-    case ShapeType.TERMINATOR: return { r: 16,  g: 185, b: 129, a: 230 };
-    case ShapeType.PROCESS:    return { r: 37,  g: 99,  b: 235, a: 230 };
-    case ShapeType.DECISION:   return { r: 217, g: 119, b: 6,   a: 230 };
-    case ShapeType.DATA:       return { r: 13,  g: 148, b: 136, a: 230 };
-    case ShapeType.DATABASE:   return { r: 124, g: 58,  b: 237, a: 230 };
-    case ShapeType.SUBPROCESS: return { r: 79,  g: 70,  b: 229, a: 230 };
-    case ShapeType.DOCUMENT:   return { r: 2,   g: 132, b: 199, a: 230 };
-    case ShapeType.NOTE:       return { r: 202, g: 138, b: 4,   a: 230 };
-    default:                   return { r: 71,  g: 85,  b: 105, a: 230 };
+    case ShapeType.TERMINATOR: return { r: 16,  g: 185, b: 129, a: 255 }; // Emerald
+    case ShapeType.PROCESS:    return { r: 37,  g: 99,  b: 235, a: 255 }; // Royal Blue
+    case ShapeType.DECISION:   return { r: 245, g: 158, b: 11,  a: 255 }; // Radiant Amber Gold
+    case ShapeType.DATA:       return { r: 13,  g: 148, b: 136, a: 255 }; // Cyber Teal
+    case ShapeType.DATABASE:   return { r: 139, g: 92,  b: 246, a: 255 }; // Royal Violet
+    case ShapeType.SUBPROCESS: return { r: 99,  g: 102, b: 241, a: 255 }; // Modern Indigo
+    case ShapeType.DOCUMENT:   return { r: 14,  g: 165, b: 233, a: 255 }; // Sky Blue
+    case ShapeType.NOTE:       return { r: 245, g: 158, b: 11,  a: 255 }; // Clean Post-it Amber
+    default:                   return { r: 71,  g: 85,  b: 105, a: 255 };
   }
 }
 
@@ -40,13 +40,13 @@ function defaultBorderColor(type) {
   switch (type) {
     case ShapeType.TERMINATOR: return { r: 110, g: 231, b: 183, a: 255 };
     case ShapeType.PROCESS:    return { r: 147, g: 197, b: 253, a: 255 };
-    case ShapeType.DECISION:   return { r: 252, g: 211, b: 77,  a: 255 };
+    case ShapeType.DECISION:   return { r: 253, g: 224, b: 71,  a: 255 };
     case ShapeType.DATA:       return { r: 94,  g: 234, b: 212, a: 255 };
-    case ShapeType.DATABASE:   return { r: 196, g: 181, b: 253, a: 255 };
-    case ShapeType.SUBPROCESS: return { r: 165, g: 180, b: 252, a: 255 };
-    case ShapeType.DOCUMENT:   return { r: 125, g: 211, b: 252, a: 255 };
-    case ShapeType.NOTE:       return { r: 253, g: 224, b: 71,  a: 255 };
-    default:                   return { r: 203, g: 213, b: 225, a: 255 };
+    case ShapeType.DATABASE:   return { r: 216, g: 180, b: 254, a: 255 };
+    case ShapeType.SUBPROCESS: return { r: 199, g: 210, b: 254, a: 255 };
+    case ShapeType.DOCUMENT:   return { r: 186, g: 230, b: 253, a: 255 };
+    case ShapeType.NOTE:       return { r: 254, g: 240, b: 138, a: 255 };
+    default:                   return { r: 226, g: 232, b: 240, a: 255 };
   }
 }
 

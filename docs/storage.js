@@ -169,7 +169,140 @@ const Storage = {
     }, 'image/png');
     return true;
   },
+
+  /** Copy diagram image to clipboard as PNG */
+  async copyPNGToClipboard(diagram, renderer) {
+    if (diagram.nodes.length === 0) return false;
+    const oc = renderer.renderToOffscreen(diagram);
+    return new Promise((resolve) => {
+      oc.toBlob(async blob => {
+        if (!blob) { resolve(false); return; }
+        try {
+          if (navigator.clipboard && navigator.clipboard.write) {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]);
+            resolve(true);
+          } else {
+            resolve(false);
+          }
+        } catch (err) {
+          console.warn('Clipboard write error', err);
+          resolve(false);
+        }
+      }, 'image/png');
+    });
+  },
+
+  /** Serialize and compress diagram into a shareable URL hash */
+  async exportShareURL(diagram) {
+    const data = {
+      version: 'DIAGRAMABOT_WEB_V1',
+      config: {
+        snapToGrid: diagram.snapToGrid,
+        gridSize:   diagram.gridSize,
+        showGrid:   diagram.showGrid,
+      },
+      nodes:       diagram.nodes.map(n => ({ ...n })),
+      connections: diagram.connections.map(c => ({ ...c })),
+      nextNodeId:  diagram.nextNodeId,
+      nextConnId:  diagram.nextConnId,
+    };
+    const json = JSON.stringify(data);
+    const token = await _compressString(json);
+    const base = window.location.origin + window.location.pathname;
+    const url = base + '#share=' + token;
+    return { url, token, length: url.length };
+  },
+
+  /** Load diagram from URL hash (returns true if successfully loaded) */
+  async loadDiagramFromURLHash(diagram, hashStr) {
+    try {
+      let clean = (hashStr || window.location.hash || '').replace(/^#/, '');
+      if (!clean) return false;
+      if (clean.startsWith('share=')) clean = clean.slice('share='.length);
+      else if (clean.startsWith('diagram=')) clean = clean.slice('diagram='.length);
+      else if (clean.startsWith('data=')) clean = clean.slice('data='.length);
+
+      const json = await _decompressString(clean);
+      if (!json) return false;
+      const ok = this.loadDiagramFromJSON(diagram, json);
+      return ok;
+    } catch (err) {
+      console.error('Failed to load diagram from hash', err);
+      return false;
+    }
+  },
 };
+
+function _bytesToBase64Url(bytes) {
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+function _base64UrlToBytes(base64url) {
+  let b64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function _compressString(str) {
+  if (typeof CompressionStream !== 'undefined') {
+    try {
+      const blob = new Blob([str]);
+      const cs = new CompressionStream('deflate');
+      const compressedStream = blob.stream().pipeThrough(cs);
+      const res = await new Response(compressedStream).arrayBuffer();
+      return 'z:' + _bytesToBase64Url(new Uint8Array(res));
+    } catch (e) {
+      console.warn('CompressionStream failed, using base64 fallback', e);
+    }
+  }
+  const utf8 = encodeURIComponent(str);
+  let binary = '';
+  for (let i = 0; i < utf8.length; i++) binary += String.fromCharCode(utf8.charCodeAt(i));
+  return 'b:' + _bytesToBase64Url(new Uint8Array(Array.from(binary).map(c => c.charCodeAt(0))));
+}
+
+async function _decompressString(encoded) {
+  try {
+    if (encoded.startsWith('z:')) {
+      const bytes = _base64UrlToBytes(encoded.slice(2));
+      if (typeof DecompressionStream !== 'undefined') {
+        const blob = new Blob([bytes]);
+        const ds = new DecompressionStream('deflate');
+        const decompressedStream = blob.stream().pipeThrough(ds);
+        return await new Response(decompressedStream).text();
+      }
+    } else if (encoded.startsWith('b:')) {
+      const bytes = _base64UrlToBytes(encoded.slice(2));
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      return decodeURIComponent(binary);
+    } else {
+      // Legacy or un-prefixed base64
+      const bytes = _base64UrlToBytes(encoded);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      return decodeURIComponent(binary);
+    }
+  } catch (err) {
+    console.error('Decompression error', err);
+    return null;
+  }
+}
 
 function _svgPortPos(n, port) {
   switch (port) {
