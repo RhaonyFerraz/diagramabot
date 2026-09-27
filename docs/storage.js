@@ -8,9 +8,10 @@ const Storage = {
     const data = {
       version: 'DIAGRAMABOT_WEB_V1',
       config: {
-        snapToGrid: diagram.snapToGrid,
-        gridSize:   diagram.gridSize,
-        showGrid:   diagram.showGrid,
+        snapToGrid:      diagram.snapToGrid,
+        gridSize:        diagram.gridSize,
+        showGrid:        diagram.showGrid,
+        backgroundColor: diagram.backgroundColor || 'dark',
       },
       nodes:       diagram.nodes.map(n => ({ ...n })),
       connections: diagram.connections.map(c => ({ ...c })),
@@ -43,6 +44,7 @@ const Storage = {
         diagram.snapToGrid = data.config.snapToGrid;
         diagram.gridSize   = data.config.gridSize;
         diagram.showGrid   = data.config.showGrid;
+        if (data.config.backgroundColor) diagram.backgroundColor = data.config.backgroundColor;
       }
       diagram.selectedNodeId = -1;
       diagram.selectedConnId = -1;
@@ -65,15 +67,17 @@ const Storage = {
     let svg = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n`;
     svg    += `<svg xmlns="http://www.w3.org/2000/svg" width="${W.toFixed(1)}" height="${H.toFixed(1)}" viewBox="0 0 ${W.toFixed(1)} ${H.toFixed(1)}">\n`;
 
+    const isWhiteBg = diagram && diagram.backgroundColor === 'white';
+
     // Defs
     svg += `  <defs>\n`;
     svg += `    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">\n`;
-    svg += `      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#94a3b8" />\n`;
+    svg += `      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="${isWhiteBg ? '#64748b' : '#94a3b8'}" />\n`;
     svg += `    </marker>\n`;
     svg += `  </defs>\n`;
 
     // Background
-    svg += `  <rect width="100%" height="100%" fill="#121316" />\n`;
+    svg += `  <rect width="100%" height="100%" fill="${isWhiteBg ? '#ffffff' : '#121316'}" />\n`;
 
     // Connections
     for (const c of diagram.connections) {
@@ -88,12 +92,16 @@ const Storage = {
       const p1 = _svgPortPos(sf, fp), p2 = _svgPortPos(st, tp);
       const [cp1, cp2] = bezierControlPoints(p1, p2, fp, tp);
 
-      const stroke = colorToHex(c.color);
+      let stroke = colorToHex(c.color);
+      if (isWhiteBg && c.color && c.color.r === 148 && c.color.g === 163 && c.color.b === 184) {
+        stroke = '#64748b';
+      }
       svg += `  <path d="M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} C ${cp1.x.toFixed(1)} ${cp1.y.toFixed(1)}, ${cp2.x.toFixed(1)} ${cp2.y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}" fill="none" stroke="${stroke}" stroke-width="2.5" marker-end="url(#arrow)" />\n`;
 
       if (c.label) {
         const mid = bezierPoint(p1, cp1, cp2, p2, 0.5);
-        svg += `  <text x="${mid.x.toFixed(1)}" y="${mid.y.toFixed(1)}" fill="#ffffff" font-family="Inter, sans-serif" font-size="13" text-anchor="middle" dominant-baseline="central">${_escapeXML(c.label)}</text>\n`;
+        const labelTextColor = isWhiteBg ? '#0f172a' : '#ffffff';
+        svg += `  <text x="${mid.x.toFixed(1)}" y="${mid.y.toFixed(1)}" fill="${labelTextColor}" font-family="Inter, sans-serif" font-size="13" text-anchor="middle" dominant-baseline="central">${_escapeXML(c.label)}</text>\n`;
       }
     }
 
@@ -199,9 +207,10 @@ const Storage = {
     const data = {
       version: 'DIAGRAMABOT_WEB_V1',
       config: {
-        snapToGrid: diagram.snapToGrid,
-        gridSize:   diagram.gridSize,
-        showGrid:   diagram.showGrid,
+        snapToGrid:      diagram.snapToGrid,
+        gridSize:        diagram.gridSize,
+        showGrid:        diagram.showGrid,
+        backgroundColor: diagram.backgroundColor || 'dark',
       },
       nodes:       diagram.nodes.map(n => ({ ...n })),
       connections: diagram.connections.map(c => ({ ...c })),

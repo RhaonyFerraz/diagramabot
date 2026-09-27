@@ -321,6 +321,23 @@ aside {
   transition: background 0.12s;
 }
 .inspector-btn:hover { background: #252b36; }
+.inspector-btn.active {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent-hover) !important;
+  font-weight: 600;
+}
+
+.btn-theme.is-white {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  font-weight: 600;
+}
+.btn-theme.is-white:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
 
 .inspector-danger {
   width: 100%;

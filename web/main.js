@@ -92,12 +92,13 @@ class App {
     }
 
     const ctx = this.renderer.ctx;
+    const isWhiteBg = this.diagram.backgroundColor === 'white';
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#121418';
+    ctx.fillStyle = isWhiteBg ? '#f8fafc' : '#121418';
     ctx.fillRect(0, 0, W, H);
 
     if (this.diagram.showGrid) {
-      this.renderer.drawGrid(this.camera, this.diagram.gridSize, W, H);
+      this.renderer.drawGrid(this.camera, this.diagram.gridSize, W, H, isWhiteBg);
     }
     this.renderer.drawDiagram(this.diagram, this.camera, W, H);
 
@@ -618,7 +619,7 @@ class App {
       this.camera.zoom = 1.0;
     });
 
-    // Grid / Snap
+    // Grid / Snap / Background theme
     document.getElementById('btn-grid').addEventListener('click', () => {
       this.diagram.showGrid = !this.diagram.showGrid;
     });
@@ -626,6 +627,13 @@ class App {
       this.diagram.snapToGrid = !this.diagram.snapToGrid;
       this.diagram.setToast(this.diagram.snapToGrid ? 'Snap to Grid ativado' : 'Snap to Grid desativado');
     });
+    const themeBtn = document.getElementById('btn-theme');
+    if (themeBtn) {
+      themeBtn.addEventListener('click', () => {
+        const nextBg = this.diagram.backgroundColor === 'white' ? 'dark' : 'white';
+        this.diagram.setBackgroundColor(nextBg);
+      });
+    }
 
     // Help
     document.getElementById('btn-help').addEventListener('click', () => this._toggleHelp());

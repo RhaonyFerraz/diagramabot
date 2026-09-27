@@ -61,6 +61,15 @@ class UI {
     this._rightEl.textContent  = `Zoom: ${Math.round(camera.zoom * 100)}%  |  Snap: ${this.diagram.snapToGrid ? 'ON' : 'OFF'}  |  FPS: ${fps}`;
     this._gridBtn.classList.toggle('active', this.diagram.showGrid);
     this._snapBtn.classList.toggle('active', this.diagram.snapToGrid);
+
+    const themeBtn = document.getElementById('btn-theme');
+    if (themeBtn) {
+      const isWhite = this.diagram.backgroundColor === 'white';
+      themeBtn.classList.toggle('active', isWhite);
+      themeBtn.classList.toggle('is-white', isWhite);
+      themeBtn.innerHTML = isWhite ? '🌙 Fundo Escuro' : '☀️ Fundo Branco';
+      themeBtn.title = isWhite ? 'Alternar para fundo escuro' : 'Alternar para fundo branco';
+    }
   }
 
   updateToast() {
@@ -346,6 +355,52 @@ class UI {
     const div1 = document.createElement('div');
     div1.className = 'inspector-divider';
     wrap.appendChild(div1);
+
+    // Canvas settings
+    const configTitle = document.createElement('div');
+    configTitle.className = 'inspector-title';
+    configTitle.textContent = 'CONFIGURAÇÃO DA TELA';
+    wrap.appendChild(configTitle);
+
+    const bgRow = document.createElement('div');
+    bgRow.className = 'inspector-row';
+    const bgLabel = document.createElement('label');
+    bgLabel.textContent = 'Fundo da Tela:';
+    
+    const bgBtnGroup = document.createElement('div');
+    bgBtnGroup.className = 'bg-theme-group';
+    bgBtnGroup.style.display = 'flex';
+    bgBtnGroup.style.gap = '6px';
+    bgBtnGroup.style.marginTop = '6px';
+
+    const isWhite = d.backgroundColor === 'white';
+    const darkBtn = document.createElement('button');
+    darkBtn.className = 'inspector-btn' + (!isWhite ? ' active' : '');
+    darkBtn.innerHTML = '🌙 Escuro';
+    darkBtn.style.flex = '1';
+    darkBtn.addEventListener('click', () => {
+      d.setBackgroundColor('dark');
+      this.updateInspector();
+    });
+
+    const whiteBtn = document.createElement('button');
+    whiteBtn.className = 'inspector-btn' + (isWhite ? ' active' : '');
+    whiteBtn.innerHTML = '☀️ Branco';
+    whiteBtn.style.flex = '1';
+    whiteBtn.addEventListener('click', () => {
+      d.setBackgroundColor('white');
+      this.updateInspector();
+    });
+
+    bgBtnGroup.appendChild(darkBtn);
+    bgBtnGroup.appendChild(whiteBtn);
+    bgRow.appendChild(bgLabel);
+    bgRow.appendChild(bgBtnGroup);
+    wrap.appendChild(bgRow);
+
+    const div2 = document.createElement('div');
+    div2.className = 'inspector-divider';
+    wrap.appendChild(div2);
 
     const how = document.createElement('div');
     how.className = 'inspector-title';

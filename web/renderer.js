@@ -14,7 +14,7 @@ class Renderer {
   }
 
   // ── GRID ──
-  drawGrid(camera, gridSize, w, h) {
+  drawGrid(camera, gridSize, w, h, isWhiteBg = false) {
     const ctx = this.ctx;
     if (gridSize <= 4) gridSize = 20;
 
@@ -30,7 +30,7 @@ class Renderer {
     const endY   = Math.ceil(br.y  / effGrid) * effGrid;
 
     const dotR = camera.zoom < 0.8 ? 0.9 : 1.3;
-    ctx.fillStyle = 'rgba(71,85,105,0.35)';
+    ctx.fillStyle = isWhiteBg ? 'rgba(100,116,139,0.35)' : 'rgba(71,85,105,0.35)';
     for (let x = startX; x <= endX; x += effGrid) {
       for (let y = startY; y <= endY; y += effGrid) {
         const sx = x * camera.zoom + camera.ox;
@@ -65,15 +65,21 @@ class Renderer {
     const ctx  = this.ctx;
     const { x, y, w, h } = n;
 
+    const isWhiteBg = diagram && diagram.backgroundColor === 'white';
     let borderColor = colorToCss(n.borderColor);
     let bw = n.borderWidth;
 
+    if (isWhiteBg && n.fillColor && n.fillColor.r > 240 && n.fillColor.g > 240 && n.fillColor.b > 240) {
+      if (bw < 1.5) bw = 1.5;
+      borderColor = '#94a3b8';
+    }
+
     // ── DEEP DROP SHADOW ──
     ctx.save();
-    ctx.shadowColor   = 'rgba(0,0,0,0.60)';
-    ctx.shadowBlur    = 22;
+    ctx.shadowColor   = isWhiteBg ? 'rgba(15,23,42,0.16)' : 'rgba(0,0,0,0.60)';
+    ctx.shadowBlur    = isWhiteBg ? 14 : 22;
     ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 8;
+    ctx.shadowOffsetY = isWhiteBg ? 5 : 8;
     ctx.fillStyle = colorToCss(n.fillColor);
     this._fillShape(n);
     ctx.fill();
@@ -90,7 +96,7 @@ class Renderer {
       borderColor = '#93c5fd';
       bw = 2.5;
     } else if (isHovered) {
-      borderColor = 'rgba(255,255,255,0.95)';
+      borderColor = isWhiteBg ? 'rgba(30,41,59,0.95)' : 'rgba(255,255,255,0.95)';
       bw = 2;
     }
 
@@ -174,10 +180,12 @@ class Renderer {
 
     // ── TEXT ──
     ctx.save();
-    ctx.shadowColor   = 'rgba(0,0,0,0.55)';
-    ctx.shadowBlur    = 4;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 1;
+    if (!isWhiteBg) {
+      ctx.shadowColor   = 'rgba(0,0,0,0.55)';
+      ctx.shadowBlur    = 4;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 1;
+    }
     this.drawWrappedText(n.text, x, y, w, h, 16, colorToCss(n.textColor));
     ctx.restore();
 
@@ -505,6 +513,7 @@ class Renderer {
 
     // Label badge
     if (c.label) {
+      const isWhiteBg = diagram && diagram.backgroundColor === 'white';
       const mid = bezierPoint(p1, cp1, cp2, p2, 0.5);
       ctx.save();
       ctx.font = '500 13px Inter, sans-serif';
@@ -513,12 +522,12 @@ class Renderer {
       const tw = ctx.measureText(c.label).width;
       const bx = mid.x - tw * 0.5 - 9, by = mid.y - 12, bw = tw + 18, bh = 24;
       roundRect(ctx, bx, by, bw, bh, 6);
-      ctx.fillStyle   = 'rgba(24,24,27,0.94)';
+      ctx.fillStyle   = isWhiteBg ? 'rgba(255,255,255,0.96)' : 'rgba(24,24,27,0.94)';
       ctx.fill();
       ctx.strokeStyle = lineColor;
       ctx.lineWidth   = 1.5;
       ctx.stroke();
-      ctx.fillStyle = '#fff';
+      ctx.fillStyle = isWhiteBg ? '#0f172a' : '#fff';
       ctx.fillText(c.label, mid.x, mid.y);
       ctx.restore();
     }
@@ -609,12 +618,14 @@ class Renderer {
     oc.height = H;
     const octx = oc.getContext('2d');
 
+    const isWhiteBg = diagram && diagram.backgroundColor === 'white';
+
     // Background
-    octx.fillStyle = '#121316';
+    octx.fillStyle = isWhiteBg ? '#ffffff' : '#121316';
     octx.fillRect(0, 0, W, H);
 
     // Subtle grid
-    octx.fillStyle = 'rgba(71,85,105,0.19)';
+    octx.fillStyle = isWhiteBg ? 'rgba(100,116,139,0.18)' : 'rgba(71,85,105,0.19)';
     for (let gx = 0; gx < W; gx += 20) {
       for (let gy = 0; gy < H; gy += 20) {
         octx.beginPath();
@@ -627,6 +638,7 @@ class Renderer {
     const offR = new Renderer(oc);
     const offDiag = {
       ...diagram,
+      backgroundColor: diagram.backgroundColor || 'dark',
       nodes:       diagram.nodes.map(n => ({ ...n, x: n.x - bb.x, y: n.y - bb.y })),
       connections: diagram.connections,
       getNode: (id) => {
@@ -653,14 +665,15 @@ class Renderer {
       const proxy = {
         getPortPosition: (n, p) => diagram.getPortPosition(n, p),
         getClosestPort:  (a, b) => diagram.getClosestPort(a, b),
+        backgroundColor: diagram.backgroundColor,
       };
       offR.drawConnection(c, from, to, false, false, proxy);
     }
     for (const n of offDiag.nodes) {
-      offR.drawNode(n, false, false, false, -1, { getPortPosition: () => ({x:0,y:0}) });
+      offR.drawNode(n, false, false, false, -1, { getPortPosition: () => ({x:0,y:0}), backgroundColor: diagram.backgroundColor });
     }
     // Watermark
-    octx.fillStyle = 'rgba(100,116,139,0.6)';
+    octx.fillStyle = isWhiteBg ? 'rgba(100,116,139,0.5)' : 'rgba(100,116,139,0.6)';
     octx.font = '500 16px Inter, sans-serif';
     octx.fillText('DiagramaBot', 18, H - 14);
 

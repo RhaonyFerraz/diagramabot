@@ -95,6 +95,7 @@ class Diagram {
     this.snapToGrid = true;
     this.gridSize   = 20;
     this.showGrid   = true;
+    this.backgroundColor = (typeof localStorage !== 'undefined' && localStorage.getItem('diagramabot_canvas_bg')) || 'dark';
 
     // Toast
     this.toastMessage = '';
@@ -105,6 +106,17 @@ class Diagram {
     this._historyIndex = -1;
 
     this._pushHistory();
+  }
+
+  setBackgroundColor(color) {
+    if (color !== 'white' && color !== 'dark') return;
+    if (this.backgroundColor === color) return;
+    this.backgroundColor = color;
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem('diagramabot_canvas_bg', color);
+    } catch (_) {}
+    this._pushHistory();
+    this.setToast(color === 'white' ? 'Fundo Branco ativado ☀️' : 'Fundo Escuro ativado 🌙');
   }
 
   // ---- Node operations ----
@@ -323,10 +335,11 @@ class Diagram {
       this._historyIndex = this._history.length - 1;
     }
     const snap = {
-      nodes:       JSON.parse(JSON.stringify(this.nodes)),
-      connections: JSON.parse(JSON.stringify(this.connections)),
-      nextNodeId:  this.nextNodeId,
-      nextConnId:  this.nextConnId,
+      nodes:           JSON.parse(JSON.stringify(this.nodes)),
+      connections:     JSON.parse(JSON.stringify(this.connections)),
+      nextNodeId:      this.nextNodeId,
+      nextConnId:      this.nextConnId,
+      backgroundColor: this.backgroundColor,
     };
     this._history.push(snap);
     this._historyIndex = this._history.length - 1;
@@ -357,6 +370,7 @@ class Diagram {
     this.connections = JSON.parse(JSON.stringify(snap.connections));
     this.nextNodeId  = snap.nextNodeId;
     this.nextConnId  = snap.nextConnId;
+    if (snap.backgroundColor) this.backgroundColor = snap.backgroundColor;
     this.selectedNodeId = -1;
     this.selectedConnId = -1;
     this.isEditingText  = false;
