@@ -52,6 +52,7 @@ class UI {
 
     this._lastSelectedNode = null;
     this._lastSelectedConn = null;
+    this._lastBgColor      = null;
   }
 
   updateStatusBar(camera, fps) {
@@ -62,13 +63,18 @@ class UI {
     this._gridBtn.classList.toggle('active', this.diagram.showGrid);
     this._snapBtn.classList.toggle('active', this.diagram.snapToGrid);
 
+    const isWhite = this.diagram.backgroundColor === 'white';
+    document.body.classList.toggle('light-theme', isWhite);
+
     const themeBtn = document.getElementById('btn-theme');
     if (themeBtn) {
-      const isWhite = this.diagram.backgroundColor === 'white';
-      themeBtn.classList.toggle('active', isWhite);
-      themeBtn.classList.toggle('is-white', isWhite);
-      themeBtn.innerHTML = isWhite ? '🌙 Fundo Escuro' : '☀️ Fundo Branco';
-      themeBtn.title = isWhite ? 'Alternar para fundo escuro' : 'Alternar para fundo branco';
+      const targetLabel = isWhite ? '🌙 Modo Escuro' : '☀️ Modo Claro';
+      if (themeBtn.textContent !== targetLabel) {
+        themeBtn.textContent = targetLabel;
+        themeBtn.classList.toggle('active', isWhite);
+        themeBtn.classList.toggle('is-white', isWhite);
+        themeBtn.title = isWhite ? 'Alternar para Modo Escuro' : 'Alternar para Modo Claro';
+      }
     }
   }
 
@@ -95,8 +101,13 @@ class UI {
       this._updateColorSwatches(node.fillColor);
       return;
     }
+    // Avoid rebuilding summary if nothing was and still is selected and theme didn't change
+    if (!node && !conn && this._lastSelectedNode === null && this._lastSelectedConn === null && this._lastBgColor === d.backgroundColor) {
+      return;
+    }
     this._lastSelectedNode = node || null;
     this._lastSelectedConn = conn || null;
+    this._lastBgColor      = d.backgroundColor;
 
     const el = this._inspectorEl;
     el.innerHTML = '';
@@ -359,13 +370,13 @@ class UI {
     // Canvas settings
     const configTitle = document.createElement('div');
     configTitle.className = 'inspector-title';
-    configTitle.textContent = 'CONFIGURAÇÃO DA TELA';
+    configTitle.textContent = 'MODO DO EDITOR';
     wrap.appendChild(configTitle);
 
     const bgRow = document.createElement('div');
     bgRow.className = 'inspector-row';
     const bgLabel = document.createElement('label');
-    bgLabel.textContent = 'Fundo da Tela:';
+    bgLabel.textContent = 'Tema Visual:';
     
     const bgBtnGroup = document.createElement('div');
     bgBtnGroup.className = 'bg-theme-group';
@@ -376,18 +387,20 @@ class UI {
     const isWhite = d.backgroundColor === 'white';
     const darkBtn = document.createElement('button');
     darkBtn.className = 'inspector-btn' + (!isWhite ? ' active' : '');
-    darkBtn.innerHTML = '🌙 Escuro';
+    darkBtn.innerHTML = '🌙 Modo Escuro';
     darkBtn.style.flex = '1';
-    darkBtn.addEventListener('click', () => {
+    darkBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
       d.setBackgroundColor('dark');
       this.updateInspector();
     });
 
     const whiteBtn = document.createElement('button');
     whiteBtn.className = 'inspector-btn' + (isWhite ? ' active' : '');
-    whiteBtn.innerHTML = '☀️ Branco';
+    whiteBtn.innerHTML = '☀️ Modo Claro';
     whiteBtn.style.flex = '1';
-    whiteBtn.addEventListener('click', () => {
+    whiteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
       d.setBackgroundColor('white');
       this.updateInspector();
     });

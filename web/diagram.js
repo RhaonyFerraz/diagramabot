@@ -116,7 +116,7 @@ class Diagram {
       if (typeof localStorage !== 'undefined') localStorage.setItem('diagramabot_canvas_bg', color);
     } catch (_) {}
     this._pushHistory();
-    this.setToast(color === 'white' ? 'Fundo Branco ativado ☀️' : 'Fundo Escuro ativado 🌙');
+    this.setToast(color === 'white' ? 'Modo Claro ativado ☀️' : 'Modo Escuro ativado 🌙');
   }
 
   // ---- Node operations ----

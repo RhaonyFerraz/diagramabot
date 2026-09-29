@@ -629,7 +629,9 @@ class App {
     });
     const themeBtn = document.getElementById('btn-theme');
     if (themeBtn) {
-      themeBtn.addEventListener('click', () => {
+      themeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         const nextBg = this.diagram.backgroundColor === 'white' ? 'dark' : 'white';
         this.diagram.setBackgroundColor(nextBg);
       });

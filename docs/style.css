@@ -479,3 +479,121 @@ aside {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #3d4757; }
+
+/* ── LIGHT THEME COMPLETE UI STYLES ── */
+body.light-theme {
+  --bg-navbar-s:  #ffffff;
+  --bg-sidebar:   #f8fafc;
+  --bg-panel:     #f1f5f9;
+  --border:       #e2e8f0;
+  --text-primary: #0f172a;
+  --text-muted:   #64748b;
+  background:     #ffffff;
+}
+
+body.light-theme #topbar {
+  background: #ffffff;
+  border-bottom: 1.5px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+body.light-theme aside {
+  background: #f8fafc;
+}
+
+body.light-theme #sidebar-left {
+  border-right: 1.5px solid #e2e8f0;
+}
+
+body.light-theme #sidebar-right {
+  border-left: 1.5px solid #e2e8f0;
+}
+
+body.light-theme #statusbar {
+  background: #f8fafc;
+  border-top: 1.5px solid #e2e8f0;
+  color: #64748b;
+}
+
+body.light-theme .btn {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+body.light-theme .btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+body.light-theme .tool-btn,
+body.light-theme .shape-btn {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #1e293b;
+}
+
+body.light-theme .tool-btn:hover,
+body.light-theme .shape-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+body.light-theme .tool-btn.active {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent-hover);
+}
+
+body.light-theme .inspector-btn {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+body.light-theme .inspector-btn:hover {
+  background: #f1f5f9;
+}
+
+body.light-theme .inspector-btn.active {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  border-color: var(--accent-hover) !important;
+}
+
+body.light-theme .chip {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+body.light-theme .chip:hover {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+body.light-theme .modal {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #e2e8f0;
+}
+
+body.light-theme .modal-header h3 {
+  color: #0f172a;
+}
+
+body.light-theme .modal-subtitle {
+  color: #64748b;
+}
+
+body.light-theme .share-url-box input {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+body.light-theme #help-modal {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
