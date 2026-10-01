@@ -15,6 +15,8 @@ const ShapeType = {
   SUBPROCESS: 'subprocess',
   DOCUMENT:   'document',
   NOTE:       'note',
+  IMAGE:      'image',
+  TEXT:       'text',
 };
 
 const PortIndex = { TOP: 0, RIGHT: 1, BOTTOM: 2, LEFT: 3, AUTO: 4 };
@@ -32,6 +34,8 @@ function defaultFillColor(type) {
     case ShapeType.SUBPROCESS: return { r: 99,  g: 102, b: 241, a: 255 }; // Modern Indigo
     case ShapeType.DOCUMENT:   return { r: 14,  g: 165, b: 233, a: 255 }; // Sky Blue
     case ShapeType.NOTE:       return { r: 245, g: 158, b: 11,  a: 255 }; // Clean Post-it Amber
+    case ShapeType.IMAGE:      return { r: 30,  g: 41,  b: 59,  a: 255 }; // Modern Slate Dark
+    case ShapeType.TEXT:       return { r: 30,  g: 41,  b: 59,  a: 220 }; // Modern Dark Slate
     default:                   return { r: 71,  g: 85,  b: 105, a: 255 };
   }
 }
@@ -46,6 +50,8 @@ function defaultBorderColor(type) {
     case ShapeType.SUBPROCESS: return { r: 199, g: 210, b: 254, a: 255 };
     case ShapeType.DOCUMENT:   return { r: 186, g: 230, b: 253, a: 255 };
     case ShapeType.NOTE:       return { r: 254, g: 240, b: 138, a: 255 };
+    case ShapeType.IMAGE:      return { r: 59,  g: 130, b: 246, a: 255 }; // Accent Blue
+    case ShapeType.TEXT:       return { r: 71,  g: 85,  b: 105, a: 180 }; // Subtle Slate Border
     default:                   return { r: 226, g: 232, b: 240, a: 255 };
   }
 }
@@ -162,6 +168,110 @@ class Diagram {
     return true;
   }
 
+  addImageNode(imageData, x, y, w, h, text, aspectRatio) {
+    if (this.nodes.length >= MAX_NODES) {
+      this.setToast('Limite máximo de blocos atingido');
+      return null;
+    }
+    if (this.snapToGrid && this.gridSize > 0) {
+      x = Math.round(x / this.gridSize) * this.gridSize;
+      y = Math.round(y / this.gridSize) * this.gridSize;
+    }
+    const n = {
+      id: this.nextNodeId++,
+      type: ShapeType.IMAGE,
+      x, y,
+      w: w || 220,
+      h: h || 160,
+      text: text || '',
+      imageData: imageData || '',
+      aspectRatio: aspectRatio || ((w && h) ? (w / h) : (220 / 160)),
+      fillColor:   { r: 15,  g: 23,  b: 42,  a: 255 },
+      borderColor: { r: 59,  g: 130, b: 246, a: 255 },
+      textColor:   { r: 255, g: 255, b: 255, a: 255 },
+      borderWidth: 2,
+      selected: false,
+    };
+    this.nodes.push(n);
+    this.selectedNodeId = n.id;
+    this.selectedConnId = -1;
+    this._pushHistory();
+    this.setToast('Imagem adicionada ao quadro! 🖼️');
+    return n;
+  }
+
+  addTextNode(x, y, text, options = {}) {
+    if (this.nodes.length >= MAX_NODES) {
+      this.setToast('Limite máximo de blocos atingido');
+      return null;
+    }
+    if (this.snapToGrid && this.gridSize > 0) {
+      x = Math.round(x / this.gridSize) * this.gridSize;
+      y = Math.round(y / this.gridSize) * this.gridSize;
+    }
+    const initialText = text || 'Novo Texto';
+    const fontSize = options.fontSize || 18;
+    const fontFamily = options.fontFamily || 'Inter, sans-serif';
+    const n = {
+      id: this.nextNodeId++,
+      type: ShapeType.TEXT,
+      x, y,
+      w: 120,
+      h: 44,
+      text: initialText,
+      fontSize: fontSize,
+      fontFamily: fontFamily,
+      fontWeight: options.fontWeight || '500',
+      autoResize: true,
+      fillColor:   options.fillColor || { r: 30, g: 41, b: 59, a: 220 },
+      borderColor: options.borderColor || { r: 71, g: 85, b: 105, a: 180 },
+      textColor:   options.textColor || { r: 255, g: 255, b: 255, a: 255 },
+      borderWidth: options.borderWidth !== undefined ? options.borderWidth : 1.5,
+      selected: false,
+    };
+    this.recomputeTextNodeDimensions(n);
+    this.nodes.push(n);
+    this.selectedNodeId = n.id;
+    this.selectedConnId = -1;
+    this._pushHistory();
+    this.setToast('Quadro de texto criado! 📝');
+    return n;
+  }
+
+  recomputeTextNodeDimensions(node) {
+    if (!node || (node.type !== ShapeType.TEXT && !node.autoResize)) return;
+    const text = (node.text !== undefined && node.text !== null) ? String(node.text) : '';
+    const fontSize = node.fontSize || 18;
+    const fontFamily = node.fontFamily || 'Inter, sans-serif';
+    const fontWeight = node.fontWeight || '500';
+
+    if (!this._measureCanvas) {
+      this._measureCanvas = (typeof document !== 'undefined') ? document.createElement('canvas') : null;
+      this._measureCtx = this._measureCanvas ? this._measureCanvas.getContext('2d') : null;
+    }
+    const ctx = this._measureCtx;
+    if (ctx) {
+      ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    }
+
+    const rawLines = text.length === 0 ? ['Texto'] : text.split('\n');
+    let maxW = 0;
+    for (const line of rawLines) {
+      const lineW = ctx ? ctx.measureText(line).width : (line.length * fontSize * 0.6);
+      if (lineW > maxW) maxW = lineW;
+    }
+
+    const padX = Math.max(12, Math.round(fontSize * 0.85));
+    const padY = Math.max(8, Math.round(fontSize * 0.55));
+    const lineH = Math.round(fontSize * 1.35);
+
+    const calcW = Math.max(48, Math.ceil(maxW + padX * 2));
+    const calcH = Math.max(28, Math.ceil(rawLines.length * lineH + padY * 2));
+
+    node.w = calcW;
+    node.h = calcH;
+  }
+
   duplicateSelectedNode() {
     const orig = this.getNode(this.selectedNodeId);
     if (!orig) return;
@@ -170,6 +280,14 @@ class Diagram {
       dup.fillColor   = { ...orig.fillColor };
       dup.borderColor = { ...orig.borderColor };
       dup.textColor   = { ...orig.textColor };
+      if (orig.imageData) dup.imageData = orig.imageData;
+      if (orig.aspectRatio) dup.aspectRatio = orig.aspectRatio;
+      if (orig.fontSize) dup.fontSize = orig.fontSize;
+      if (orig.fontFamily) dup.fontFamily = orig.fontFamily;
+      if (orig.fontWeight) dup.fontWeight = orig.fontWeight;
+      if (orig.borderWidth !== undefined) dup.borderWidth = orig.borderWidth;
+      if (orig.autoResize !== undefined) dup.autoResize = orig.autoResize;
+      if (dup.type === ShapeType.TEXT) this.recomputeTextNodeDimensions(dup);
       this.selectedNodeId = dup.id;
       this.setToast('Bloco duplicado');
     }
@@ -259,6 +377,27 @@ class Diagram {
         const pos = this.getPortPosition(n, p);
         const dx = wx - pos.x, dy = wy - pos.y;
         if (dx*dx + dy*dy <= RADIUS*RADIUS) return { nodeId: n.id, portIndex: p };
+      }
+    }
+    return null;
+  }
+
+  findResizeHandle(node, wx, wy, threshold = 8) {
+    if (!node) return null;
+    const { x, y, w, h } = node;
+    const handles = [
+      { id: 'nw', x, y },
+      { id: 'n',  x: x + w * 0.5, y },
+      { id: 'ne', x: x + w, y },
+      { id: 'e',  x: x + w, y: y + h * 0.5 },
+      { id: 'se', x: x + w, y: y + h },
+      { id: 's',  x: x + w * 0.5, y: y + h },
+      { id: 'sw', x, y: y + h },
+      { id: 'w',  x, y: y + h * 0.5 },
+    ];
+    for (const item of handles) {
+      if (Math.hypot(wx - item.x, wy - item.y) <= threshold) {
+        return item.id;
       }
     }
     return null;

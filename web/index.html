@@ -7,7 +7,7 @@
   <meta name="description" content="Editor de diagramas e fluxogramas profissional no navegador. Crie, conecte e exporte fluxogramas com canvas infinito, zoom e exportação SVG/PNG." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700&family=Caveat:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -26,7 +26,10 @@
         <button class="btn" id="btn-new" title="Novo diagrama">Novo</button>
         <button class="btn" id="btn-save" title="Salvar (Ctrl+S)">Salvar</button>
         <button class="btn" id="btn-load" title="Abrir arquivo">Abrir</button>
+        <button class="btn btn-emerald" id="btn-import-img" title="Importar imagem para o quadro (ou arraste/cole com Ctrl+V)">🖼️ Imagem</button>
+        <button class="btn btn-text-add" id="btn-add-text" title="Adicionar Caixa de Texto auto-ajustável [T]">📝 Texto</button>
         <input type="file" id="file-input" accept=".diag,.json" style="display:none" />
+        <input type="file" id="image-file-input" accept="image/*" style="display:none" />
       </div>
 
       <div class="separator"></div>
@@ -92,6 +95,12 @@
         <button class="shape-btn" data-shape="database">[5] Banco de Dados</button>
         <button class="shape-btn" data-shape="subprocess">[6] Subprocesso</button>
         <button class="shape-btn" data-shape="note">[7] Nota / Post-it</button>
+        <button class="shape-btn shape-btn-text" id="btn-side-text" title="Adicionar Caixa de Texto auto-ajustável [T]">
+          <span class="tool-icon">📝</span> [T] Caixa de Texto
+        </button>
+        <button class="shape-btn shape-btn-image" id="btn-side-import-img" title="Importar imagem do computador ou arraste para o quadro">
+          <span class="tool-icon">🖼️</span> Inserir Imagem
+        </button>
       </div>
     </aside>
 
@@ -101,7 +110,16 @@
 
       <!-- Inline text editor -->
       <div id="text-editor" style="display:none">
-        <input type="text" id="text-input" maxlength="255" autocomplete="off" spellcheck="false" />
+        <textarea id="text-input" maxlength="4096" autocomplete="off" spellcheck="false" rows="1"></textarea>
+      </div>
+
+      <!-- Drag & Drop Overlay -->
+      <div id="drop-overlay" style="display:none">
+        <div class="drop-modal-box">
+          <div class="drop-icon">🖼️</div>
+          <div class="drop-title">Solte a imagem aqui</div>
+          <div class="drop-subtitle">Ela será inserida diretamente no seu quadro!</div>
+        </div>
       </div>
 
       <!-- Toast notification -->
@@ -171,6 +189,9 @@
         <div class="shortcut-row"><span class="shortcut-key">Ctrl + Z / Ctrl + Y</span><span class="shortcut-desc">Desfazer / Refazer alteração</span></div>
         <div class="shortcut-row"><span class="shortcut-key">Ctrl + S</span><span class="shortcut-desc">Salvar diagrama</span></div>
         <div class="shortcut-row"><span class="shortcut-key">Teclas 1 a 7</span><span class="shortcut-desc">Inserir formas rapidamente</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">Tecla T ou [8]</span><span class="shortcut-desc">Inserir Caixa de Texto auto-ajustável</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">Arrastar Imagem / Ctrl + V</span><span class="shortcut-desc">Importar ou colar imagem no quadro</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">Alças dos cantos</span><span class="shortcut-desc">Redimensionar bloco ou imagem selecionada</span></div>
         <div class="shortcut-row"><span class="shortcut-key">Tecla V / C</span><span class="shortcut-desc">Modo Selecionar / Modo Conectar</span></div>
         <div class="shortcut-row"><span class="shortcut-key">Tecla G / S</span><span class="shortcut-desc">Alternar Grid / Alternar Snap</span></div>
         <div class="shortcut-row"><span class="shortcut-key">ESC</span><span class="shortcut-desc">Cancelar conexão ou fechar janela</span></div>

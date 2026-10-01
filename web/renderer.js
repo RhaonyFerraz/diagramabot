@@ -2,6 +2,22 @@
  * renderer.js — Canvas 2D renderer, mirroring renderer.c
  */
 
+// Image cache for Canvas rendering
+const _imageCache = new Map();
+function getImageElement(src) {
+  if (!src) return null;
+  let entry = _imageCache.get(src);
+  if (!entry) {
+    entry = { img: new Image(), loaded: false, error: false };
+    entry.img.crossOrigin = 'anonymous';
+    entry.img.onload = () => { entry.loaded = true; };
+    entry.img.onerror = () => { entry.error = true; };
+    entry.img.src = src;
+    _imageCache.set(src, entry);
+  }
+  return entry;
+}
+
 class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -98,6 +114,163 @@ class Renderer {
     } else if (isHovered) {
       borderColor = isWhiteBg ? 'rgba(30,41,59,0.95)' : 'rgba(255,255,255,0.95)';
       bw = 2;
+    }
+
+    // ── IMAGE NODE SPECIAL RENDERING ──
+    if (n.type === ShapeType.IMAGE) {
+      ctx.save();
+      ctx.fillStyle = colorToCss(n.fillColor || { r: 15, g: 23, b: 42, a: 255 });
+      roundRect(ctx, x, y, w, h, 8);
+      ctx.fill();
+
+      if (n.imageData) {
+        const entry = getImageElement(n.imageData);
+        if (entry && entry.loaded) {
+          ctx.save();
+          roundRect(ctx, x, y, w, h, 8);
+          ctx.clip();
+          try {
+            ctx.drawImage(entry.img, x, y, w, h);
+          } catch (_) {}
+
+          // Caption bar at bottom if text exists
+          if (n.text && n.text.trim()) {
+            const capH = Math.min(32, Math.max(22, h * 0.22));
+            ctx.fillStyle = 'rgba(15,23,42,0.85)';
+            ctx.fillRect(x, y + h - capH, w, capH);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '500 12px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const displayTxt = n.text.length > 30 ? n.text.slice(0, 28) + '…' : n.text;
+            ctx.fillText(displayTxt, x + w * 0.5, y + h - capH * 0.5);
+          }
+          ctx.restore();
+        } else if (entry && entry.error) {
+          ctx.fillStyle = isWhiteBg ? '#64748b' : '#94a3b8';
+          ctx.font = '500 12px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('⚠️ Imagem inválida', x + w * 0.5, y + h * 0.5);
+        } else {
+          ctx.fillStyle = isWhiteBg ? '#64748b' : '#94a3b8';
+          ctx.font = '500 12px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('🖼️ Carregando…', x + w * 0.5, y + h * 0.5);
+        }
+      } else {
+        ctx.fillStyle = isWhiteBg ? '#64748b' : '#94a3b8';
+        ctx.font = '500 12px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🖼️ Solte uma imagem aqui', x + w * 0.5, y + h * 0.5);
+      }
+      ctx.restore();
+
+      // Border
+      ctx.save();
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth   = bw;
+      roundRect(ctx, x, y, w, h, 8);
+      ctx.stroke();
+      ctx.restore();
+
+      // Ports & Resize handles
+      if (showPorts || isHovered || isSelected) {
+        this._drawPorts(n, hoveredPort, diagram);
+      }
+      if (isSelected) {
+        this._drawResizeHandles(n);
+      }
+      return;
+    }
+
+    // ── TEXT BOX SPECIAL RENDERING (AUTO-FIT) ──
+    if (n.type === ShapeType.TEXT) {
+      const isWhiteBg = diagram && diagram.backgroundColor === 'white';
+      const hasBg = n.fillColor && n.fillColor.a > 0;
+
+      // Drop shadow (if background is visible)
+      if (hasBg) {
+        ctx.save();
+        ctx.shadowColor   = isWhiteBg ? 'rgba(15,23,42,0.12)' : 'rgba(0,0,0,0.50)';
+        ctx.shadowBlur    = isWhiteBg ? 10 : 16;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = isWhiteBg ? 3 : 5;
+        ctx.fillStyle = colorToCss(n.fillColor);
+        roundRect(ctx, x, y, w, h, 6);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Selection Halo
+      if (isSelected) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(99,179,255,0.55)';
+        ctx.lineWidth   = 4;
+        roundRect(ctx, x - 3, y - 3, w + 6, h + 6, 8);
+        ctx.stroke();
+        ctx.restore();
+      } else if (isHovered && !hasBg) {
+        ctx.save();
+        ctx.strokeStyle = isWhiteBg ? 'rgba(148,163,184,0.6)' : 'rgba(100,116,139,0.6)';
+        ctx.lineWidth   = 1;
+        ctx.setLineDash([4, 4]);
+        roundRect(ctx, x, y, w, h, 6);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Main Fill
+      if (hasBg) {
+        ctx.save();
+        ctx.fillStyle = colorToCss(n.fillColor);
+        roundRect(ctx, x, y, w, h, 6);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Border
+      if (n.borderWidth > 0 && n.borderColor && n.borderColor.a > 0) {
+        ctx.save();
+        ctx.strokeStyle = isSelected ? '#93c5fd' : colorToCss(n.borderColor);
+        ctx.lineWidth   = isSelected ? Math.max(2, n.borderWidth) : n.borderWidth;
+        roundRect(ctx, x, y, w, h, 6);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Text Render
+      ctx.save();
+      const fontSize = n.fontSize || 18;
+      const fontFamily = n.fontFamily || 'Inter, sans-serif';
+      const fontWeight = n.fontWeight || '500';
+      const textColor = n.textColor ? colorToCss(n.textColor) : (isWhiteBg ? '#0f172a' : '#ffffff');
+
+      ctx.fillStyle = textColor;
+      ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      const rawLines = (n.text !== undefined && n.text !== null && n.text !== '') ? String(n.text).split('\n') : ['Texto'];
+      const lineH = Math.round(fontSize * 1.35);
+      const totalTextH = rawLines.length * lineH;
+      const startY = y + (h - totalTextH) * 0.5 + lineH * 0.5;
+
+      rawLines.forEach((line, i) => {
+        ctx.fillText(line, x + w * 0.5, startY + i * lineH);
+      });
+      ctx.restore();
+
+      // Ports & Resize handles
+      if (showPorts || isHovered || isSelected) {
+        this._drawPorts(n, hoveredPort, diagram);
+      }
+      if (isSelected) {
+        this._drawResizeHandles(n);
+      }
+      return;
     }
 
     // ── MAIN FILL ──
@@ -206,6 +379,8 @@ class Renderer {
     ctx.beginPath();
     switch (n.type) {
       case ShapeType.PROCESS:    roundRect(ctx, x, y, w, h, Math.min(w, h) * 0.10); break;
+      case ShapeType.IMAGE:      roundRect(ctx, x, y, w, h, 8); break;
+      case ShapeType.TEXT:       roundRect(ctx, x, y, w, h, 6); break;
       case ShapeType.TERMINATOR: roundRect(ctx, x, y, w, h, h * 0.5); break;
       case ShapeType.SUBPROCESS: roundRect(ctx, x, y, w, h, Math.min(w, h) * 0.08); break;
       case ShapeType.DECISION: {
@@ -280,6 +455,12 @@ class Renderer {
       case ShapeType.PROCESS:
         roundRect(ctx, x, y, w, h, Math.min(w, h) * 0.10);
         break;
+      case ShapeType.IMAGE:
+        roundRect(ctx, x, y, w, h, 8);
+        break;
+      case ShapeType.TEXT:
+        roundRect(ctx, x, y, w, h, 6);
+        break;
       case ShapeType.TERMINATOR:
         roundRect(ctx, x, y, w, h, h * 0.5);
         break;
@@ -336,6 +517,12 @@ class Renderer {
     switch (n.type) {
       case ShapeType.PROCESS:
         roundRect(ctx, x, y, w, h, Math.min(n.w, n.h) * 0.10 + expand * 0.2);
+        break;
+      case ShapeType.IMAGE:
+        roundRect(ctx, x, y, w, h, Math.max(0, 8 + expand));
+        break;
+      case ShapeType.TEXT:
+        roundRect(ctx, x, y, w, h, Math.max(0, 6 + expand));
         break;
       case ShapeType.TERMINATOR:
         roundRect(ctx, x, y, w, h, h * 0.5);

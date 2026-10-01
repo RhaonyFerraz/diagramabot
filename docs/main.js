@@ -26,6 +26,12 @@ class App {
     this._dragInitialBounds = null;
     this._dragStartWorld    = null;
 
+    // Resize state helpers
+    this._hoveredResizeHandle = null;
+    this._activeResizeHandle  = null;
+    this._resizeStartWorld    = null;
+    this._resizeInitialNode   = null;
+
     // FPS counter
     this._frameCount = 0;
     this._fpsTimer   = 0;
@@ -36,6 +42,7 @@ class App {
     this._bindUI();
     this._bindCanvas();
     this._bindKeyboard();
+    this._bindDragAndDrop();
     this._initDiagram();
     this._loop();
   }
@@ -200,25 +207,108 @@ class App {
       this.isPanning = true;
       this.canvas.style.cursor = 'move';
     } else if (!this.isPanning) {
-      // Hover detection
-      const portHit = d.findPortAt(w.x, w.y);
-      if (portHit) {
-        d.hoveredPortNodeId = portHit.nodeId;
-        d.hoveredPortIndex  = portHit.portIndex;
-        d.hoveredNodeId     = portHit.nodeId;
-        d.hoveredConnId     = -1;
-        this.canvas.style.cursor = 'crosshair';
-      } else {
+      // Check resize handle hover if a node is selected
+      let resizeCursor = null;
+      if (d.selectedNodeId !== -1 && d.dragState === 'none') {
+        const selNode = d.getNode(d.selectedNodeId);
+        if (selNode) {
+          const rh = d.findResizeHandle(selNode, w.x, w.y, 8 / this.camera.zoom);
+          this._hoveredResizeHandle = rh;
+          if (rh) {
+            const cursorMap = {
+              'nw': 'nwse-resize', 'se': 'nwse-resize',
+              'ne': 'nesw-resize', 'sw': 'nesw-resize',
+              'n': 'ns-resize',    's': 'ns-resize',
+              'w': 'ew-resize',    'e': 'ew-resize',
+            };
+            resizeCursor = cursorMap[rh];
+          }
+        }
+      } else if (d.dragState !== 'resize') {
+        this._hoveredResizeHandle = null;
+      }
+
+      if (resizeCursor) {
+        this.canvas.style.cursor = resizeCursor;
         d.hoveredPortNodeId = -1;
         d.hoveredPortIndex  = -1;
-        const nid = d.findNodeAt(w.x, w.y);
-        d.hoveredNodeId = nid;
-        if (nid !== -1) {
-          d.hoveredConnId = -1;
-          this.canvas.style.cursor = (this.currentTool === 'connect') ? 'crosshair' : 'move';
+      } else {
+        // Hover detection
+        const portHit = d.findPortAt(w.x, w.y);
+        if (portHit) {
+          d.hoveredPortNodeId = portHit.nodeId;
+          d.hoveredPortIndex  = portHit.portIndex;
+          d.hoveredNodeId     = portHit.nodeId;
+          d.hoveredConnId     = -1;
+          this.canvas.style.cursor = 'crosshair';
         } else {
-          d.hoveredConnId = d.findConnectionAt(w.x, w.y);
-          this.canvas.style.cursor = d.hoveredConnId !== -1 ? 'pointer' : 'default';
+          d.hoveredPortNodeId = -1;
+          d.hoveredPortIndex  = -1;
+          const nid = d.findNodeAt(w.x, w.y);
+          d.hoveredNodeId = nid;
+          if (nid !== -1) {
+            d.hoveredConnId = -1;
+            this.canvas.style.cursor = (this.currentTool === 'connect') ? 'crosshair' : 'move';
+          } else {
+            d.hoveredConnId = d.findConnectionAt(w.x, w.y);
+            this.canvas.style.cursor = d.hoveredConnId !== -1 ? 'pointer' : 'default';
+          }
+        }
+      }
+
+      // Drag resize node
+      if (d.dragState === 'resize' && d.selectedNodeId !== -1 && this._activeResizeHandle && this._resizeInitialNode) {
+        const n = d.getNode(d.selectedNodeId);
+        if (n) {
+          const dx = w.x - this._resizeStartWorld.x;
+          const dy = w.y - this._resizeStartWorld.y;
+          const init = this._resizeInitialNode;
+          const handle = this._activeResizeHandle;
+          const isImage = (n.type === ShapeType.IMAGE);
+          const keepRatio = isImage || e.shiftKey;
+          const ratio = n.aspectRatio || (init.w / init.h);
+
+          let nw = init.w;
+          let nh = init.h;
+          let nx = init.x;
+          let ny = init.y;
+
+          if (handle.includes('e')) nw = Math.max(50, init.w + dx);
+          if (handle.includes('s')) nh = Math.max(40, init.h + dy);
+          if (handle.includes('w')) {
+            const candidateW = init.w - dx;
+            if (candidateW >= 50) {
+              nw = candidateW;
+              nx = init.x + dx;
+            }
+          }
+          if (handle.includes('n')) {
+            const candidateH = init.h - dy;
+            if (candidateH >= 40) {
+              nh = candidateH;
+              ny = init.y + dy;
+            }
+          }
+
+          if (keepRatio && ratio > 0) {
+            if (handle === 'e' || handle === 'w') {
+              nh = Math.round(nw / ratio);
+            } else if (handle === 'n' || handle === 's') {
+              nw = Math.round(nh * ratio);
+            } else {
+              nh = Math.round(nw / ratio);
+            }
+          }
+
+          if (d.snapToGrid && d.gridSize > 0) {
+            nw = Math.round(nw / d.gridSize) * d.gridSize;
+            nh = Math.round(nh / d.gridSize) * d.gridSize;
+          }
+
+          n.w = Math.max(50, nw);
+          n.h = Math.max(40, nh);
+          n.x = nx;
+          n.y = ny;
         }
       }
 
@@ -283,6 +373,18 @@ class App {
       return;
     }
 
+    // Check if clicked on a resize handle of the selected node
+    if (d.selectedNodeId !== -1 && this._hoveredResizeHandle) {
+      const selNode = d.getNode(d.selectedNodeId);
+      if (selNode) {
+        d.dragState = 'resize';
+        this._activeResizeHandle = this._hoveredResizeHandle;
+        this._resizeStartWorld   = { x: w.x, y: w.y };
+        this._resizeInitialNode  = { x: selNode.x, y: selNode.y, w: selNode.w, h: selNode.h };
+        return;
+      }
+    }
+
     // Single click
     const portHit = d.findPortAt(w.x, w.y);
 
@@ -325,7 +427,7 @@ class App {
     if (e.button !== 0) return;
     this.isPanning = false;
 
-    if (d.dragState === 'move') {
+    if (d.dragState === 'move' || d.dragState === 'resize') {
       d._pushHistory();
     } else if (d.dragState === 'connect') {
       const endPortHit = d.hoveredPortNodeId !== -1 ? { nodeId: d.hoveredPortNodeId, portIndex: d.hoveredPortIndex } : null;
@@ -340,6 +442,9 @@ class App {
     d.connectStartNodeId = -1;
     this._dragStartWorld    = null;
     this._dragInitialBounds = null;
+    this._activeResizeHandle = null;
+    this._resizeStartWorld   = null;
+    this._resizeInitialNode  = null;
     this.canvas.style.cursor = 'default';
   }
 
@@ -369,14 +474,25 @@ class App {
     const editorEl = document.getElementById('text-editor');
     const inputEl  = document.getElementById('text-input');
 
-    // Position the editor over the element
-    let sx, sy, ew, eh = 36;
+    // Detect TEXT node for multiline / full-cover mode
+    const isTextNode = isNode && target.type === ShapeType.TEXT;
+
+    let sx, sy, ew, eh;
     if (isNode) {
       const n = target;
-      const sp = worldToScreen(n.x, n.y + n.h * 0.5 - 18, this.camera);
-      sx = sp.x;
-      sy = sp.y;
-      ew = Math.max(140, n.w * this.camera.zoom);
+      if (isTextNode) {
+        const sp = worldToScreen(n.x, n.y, this.camera);
+        sx = sp.x;
+        sy = sp.y;
+        ew = Math.max(80,  n.w * this.camera.zoom);
+        eh = Math.max(28,  n.h * this.camera.zoom);
+      } else {
+        const sp = worldToScreen(n.x, n.y + n.h * 0.5 - 18, this.camera);
+        sx = sp.x;
+        sy = sp.y;
+        ew = Math.max(140, n.w * this.camera.zoom);
+        eh = 36;
+      }
     } else {
       const from = d.getNode(target.fromNodeId);
       const to   = d.getNode(target.toNodeId);
@@ -388,28 +504,82 @@ class App {
       const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
       const sm  = worldToScreen(mid.x, mid.y, this.camera);
       ew = 180;
+      eh = 36;
       sx = sm.x - ew / 2;
       sy = sm.y - eh / 2;
     }
 
-    editorEl.style.left   = `${sx}px`;
-    editorEl.style.top    = `${sy}px`;
-    editorEl.style.width  = `${ew}px`;
-    editorEl.style.height = `${eh}px`;
+    editorEl.style.left    = `${sx}px`;
+    editorEl.style.top     = `${sy}px`;
+    editorEl.style.width   = `${ew}px`;
+    editorEl.style.height  = `${eh}px`;
     editorEl.style.display = 'block';
     editorEl.classList.add('visible');
+
+    if (isTextNode) {
+      const n = target;
+      const fs = Math.max(8, (n.fontSize || 18) * this.camera.zoom);
+      inputEl.style.cssText = [
+        `font-size:${fs}px`,
+        `font-family:${n.fontFamily || 'Inter, sans-serif'}`,
+        `font-weight:${n.fontWeight || '600'}`,
+        `color:${colorToCss(n.textColor || { r: 255, g: 255, b: 255, a: 255 })}`,
+        'background:transparent',
+        'padding:4px 8px',
+        'resize:none',
+        `min-height:${eh}px`,
+        'overflow:hidden',
+        'box-sizing:border-box',
+        'border:none',
+        'outline:none',
+        'white-space:pre-wrap',
+        'word-wrap:break-word',
+      ].join(';');
+    } else {
+      inputEl.style.cssText = '';
+    }
 
     inputEl.value = text;
     inputEl.select();
     inputEl.focus();
 
-    const onKeyDown = (ev) => {
-      if (ev.key === 'Enter') { this._commitEdit(); cleanup(); }
-      else if (ev.key === 'Escape') { this._cancelEdit(); cleanup(); }
+    // Live resize for text nodes
+    const onInput = () => {
+      if (!isTextNode) return;
+      const n = d.getNode(id);
+      if (!n) return;
+      n.text = inputEl.value;
+      d.recomputeTextNodeDimensions(n);
+      const sp = worldToScreen(n.x, n.y, this.camera);
+      editorEl.style.left   = `${sp.x}px`;
+      editorEl.style.top    = `${sp.y}px`;
+      editorEl.style.width  = `${Math.max(80, n.w * this.camera.zoom)}px`;
+      editorEl.style.height = `${Math.max(28, n.h * this.camera.zoom)}px`;
     };
-    const cleanup = () => inputEl.removeEventListener('keydown', onKeyDown);
+
+    const onKeyDown = (ev) => {
+      if (isTextNode) {
+        // Ctrl+Enter or Shift+Enter = finish; Escape = cancel; bare Enter = newline
+        if (ev.key === 'Escape') { this._cancelEdit(); cleanup(); }
+        else if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey || ev.shiftKey)) {
+          ev.preventDefault();
+          this._commitEdit();
+          cleanup();
+        }
+      } else {
+        if (ev.key === 'Enter')  { this._commitEdit(); cleanup(); }
+        else if (ev.key === 'Escape') { this._cancelEdit(); cleanup(); }
+      }
+    };
+
+    const cleanup = () => {
+      inputEl.removeEventListener('keydown', onKeyDown);
+      inputEl.removeEventListener('input',   onInput);
+    };
     inputEl.addEventListener('keydown', onKeyDown);
+    inputEl.addEventListener('input',   onInput);
   }
+
 
   _commitEdit() {
     const d    = this.diagram;
@@ -495,7 +665,7 @@ class App {
       if (helpOverlay.style.display !== 'none') helpOverlay.style.display = 'none';
     }
 
-    // Quick shape insertion (1-7)
+    // Quick shape insertion (1-8 + T)
     const shapeMap = {
       'Digit1': ShapeType.TERMINATOR,
       'Digit2': ShapeType.PROCESS,
@@ -519,6 +689,12 @@ class App {
       const [sw, sh] = shapeSizes[type];
       const wc = screenToWorld(this.canvas.width * 0.5, this.canvas.height * 0.5, this.camera);
       d.addNode(type, wc.x - sw * 0.5, wc.y - sh * 0.5, sw, sh, null);
+    }
+    // T or 8 = add text box
+    if (!ctrl && (e.code === 'KeyT' || e.code === 'Digit8')) {
+      const wc = screenToWorld(this.canvas.width * 0.5, this.canvas.height * 0.5, this.camera);
+      d.addTextNode(wc.x - 60, wc.y - 22);
+      d.setToast('📝 Caixa de Texto adicionada!');
     }
   }
 
@@ -548,6 +724,44 @@ class App {
       reader.readAsText(file);
       e.target.value = '';
     });
+
+    // Image import buttons
+    const triggerImageSelect = () => {
+      const input = document.getElementById('image-file-input');
+      if (input) input.click();
+    };
+    const topImgBtn = document.getElementById('btn-import-img');
+    if (topImgBtn) topImgBtn.addEventListener('click', triggerImageSelect);
+
+    const sideImgBtn = document.getElementById('btn-side-import-img');
+    if (sideImgBtn) sideImgBtn.addEventListener('click', triggerImageSelect);
+
+    const imgInput = document.getElementById('image-file-input');
+    if (imgInput) {
+      imgInput.addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const wc = screenToWorld(
+          this.canvas.width * 0.5,
+          this.canvas.height * 0.5,
+          this.camera
+        );
+        this.importImageFile(file, wc.x, wc.y);
+        e.target.value = '';
+      });
+    }
+
+    // Text box buttons
+    const addTextNode = () => {
+      const wc = screenToWorld(this.canvas.width * 0.5, this.canvas.height * 0.5, this.camera);
+      this.diagram.addTextNode(wc.x - 60, wc.y - 22);
+      this._selectTool('select');
+      this.diagram.setToast('📝 Caixa de Texto adicionada! Clique duplo para editar.');
+    };
+    const topTextBtn = document.getElementById('btn-add-text');
+    if (topTextBtn) topTextBtn.addEventListener('click', addTextNode);
+    const sideTextBtn = document.getElementById('btn-side-text');
+    if (sideTextBtn) sideTextBtn.addEventListener('click', addTextNode);
 
     // Export buttons
     document.getElementById('btn-export-svg').addEventListener('click', () => {
@@ -715,6 +929,115 @@ class App {
     } else {
       overlay.style.display = show ? 'flex' : 'none';
     }
+  }
+
+  // ── DRAG & DROP & CLIPBOARD IMAGE IMPORT ──
+  _bindDragAndDrop() {
+    const overlay = document.getElementById('drop-overlay');
+    let dragCounter = 0;
+
+    window.addEventListener('dragenter', e => {
+      e.preventDefault();
+      dragCounter++;
+      if (overlay) overlay.style.display = 'flex';
+    });
+
+    window.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      if (overlay && overlay.style.display === 'none') overlay.style.display = 'flex';
+    });
+
+    window.addEventListener('dragleave', e => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        if (overlay) overlay.style.display = 'none';
+      }
+    });
+
+    window.addEventListener('drop', e => {
+      e.preventDefault();
+      dragCounter = 0;
+      if (overlay) overlay.style.display = 'none';
+
+      const files = e.dataTransfer ? e.dataTransfer.files : null;
+      if (!files || files.length === 0) return;
+
+      const rect = this.canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const worldPos = screenToWorld(sx, sy, this.camera);
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type.startsWith('image/')) {
+          this.importImageFile(file, worldPos.x + i * 25, worldPos.y + i * 25);
+        } else if (file.name.endsWith('.diag') || file.name.endsWith('.json')) {
+          const reader = new FileReader();
+          reader.onload = ev => {
+            const ok = Storage.loadDiagramFromJSON(this.diagram, ev.target.result);
+            if (!ok) this.diagram.setToast('Erro ao carregar arquivo!');
+          };
+          reader.readAsText(file);
+        }
+      }
+    });
+
+    // Paste event (Ctrl+V)
+    window.addEventListener('paste', e => {
+      const activeTag = document.activeElement ? document.activeElement.tagName : '';
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
+
+      if (!e.clipboardData || !e.clipboardData.items) return;
+      const items = e.clipboardData.items;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            const wc = (this.lastMouseWorld && (this.lastMouseWorld.x !== 0 || this.lastMouseWorld.y !== 0))
+              ? this.lastMouseWorld
+              : screenToWorld(this.canvas.width * 0.5, this.canvas.height * 0.5, this.camera);
+            this.importImageFile(file, wc.x, wc.y);
+            this.diagram.setToast('Imagem colada com sucesso! 📋🖼️');
+            e.preventDefault();
+            break;
+          }
+        }
+      }
+    });
+  }
+
+  importImageFile(file, wx, wy) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
+      const tempImg = new Image();
+      tempImg.onload = () => {
+        const natW = tempImg.naturalWidth || 240;
+        const natH = tempImg.naturalHeight || 180;
+        const aspect = natW / natH;
+
+        let w = 260;
+        let h = Math.round(w / aspect);
+        if (h > 240) {
+          h = 240;
+          w = Math.round(h * aspect);
+        }
+        w = Math.max(80, Math.min(600, w));
+        h = Math.max(60, Math.min(600, h));
+
+        const posX = (wx !== undefined) ? Math.round(wx - w * 0.5) : 100;
+        const posY = (wy !== undefined) ? Math.round(wy - h * 0.5) : 100;
+        const caption = file.name ? file.name.replace(/\.[^/.]+$/, "") : '';
+
+        this.diagram.addImageNode(dataUrl, posX, posY, w, h, caption, aspect);
+      };
+      tempImg.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
   }
 
 }

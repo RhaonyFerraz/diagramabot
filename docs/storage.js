@@ -142,6 +142,20 @@ const Storage = {
           svg += `  <polygon points="${x.toFixed(1)},${y.toFixed(1)} ${(x+w).toFixed(1)},${y.toFixed(1)} ${(x+w).toFixed(1)},${(y+h-fold).toFixed(1)} ${(x+w-fold).toFixed(1)},${(y+h).toFixed(1)} ${x.toFixed(1)},${(y+h).toFixed(1)}" fill="${fill}" stroke="${stroke}" stroke-width="2" />\n`;
           break;
         }
+        case ShapeType.IMAGE: {
+          svg += `  <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="8" fill="${fill}" stroke="${stroke}" stroke-width="2" />\n`;
+          if (n.imageData) {
+            svg += `  <image href="${n.imageData}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" preserveAspectRatio="xMidYMid slice" />\n`;
+            svg += `  <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="8" fill="none" stroke="${stroke}" stroke-width="2" />\n`;
+          }
+          break;
+        }
+        case ShapeType.TEXT: {
+          if (n.fillColor && n.fillColor.a > 0) {
+            svg += `  <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="6" fill="${fill}" stroke="${n.borderWidth > 0 ? stroke : 'none'}" stroke-width="${n.borderWidth || 1}" />\n`;
+          }
+          break;
+        }
         default: {
           const r = (n.type === ShapeType.SUBPROCESS) ? 5 : 8;
           svg += `  <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="${r}" fill="${fill}" stroke="${stroke}" stroke-width="2" />\n`;
@@ -154,7 +168,28 @@ const Storage = {
       }
 
       // Text
-      svg += `  <text x="${(x+w*0.5).toFixed(1)}" y="${(y+h*0.5).toFixed(1)}" fill="#ffffff" font-family="Inter, sans-serif" font-size="14" font-weight="500" text-anchor="middle" dominant-baseline="central">${_escapeXML(n.text)}</text>\n`;
+      if (n.type === ShapeType.IMAGE) {
+        if (n.text) {
+          const capH = 26;
+          svg += `  <rect x="${x.toFixed(1)}" y="${(y+h-capH).toFixed(1)}" width="${w.toFixed(1)}" height="${capH.toFixed(1)}" fill="rgba(15,23,42,0.85)" />\n`;
+          svg += `  <text x="${(x+w*0.5).toFixed(1)}" y="${(y+h-capH*0.5).toFixed(1)}" fill="#ffffff" font-family="Inter, sans-serif" font-size="12" font-weight="500" text-anchor="middle" dominant-baseline="central">${_escapeXML(n.text)}</text>\n`;
+        }
+      } else if (n.type === ShapeType.TEXT) {
+        const fontSize = n.fontSize || 18;
+        const fontFamily = (n.fontFamily || 'Inter, sans-serif').replace(/['"]/g, '');
+        const textColorHex = colorToHex(n.textColor || { r: 255, g: 255, b: 255, a: 255 });
+        const rawLines = (n.text !== undefined && n.text !== null && n.text !== '') ? String(n.text).split('\n') : ['Texto'];
+        const lineH = Math.round(fontSize * 1.35);
+        const totalTextH = rawLines.length * lineH;
+        const startY = y + (h - totalTextH) * 0.5 + fontSize * 0.85;
+
+        for (let i = 0; i < rawLines.length; i++) {
+          const ly = startY + i * lineH;
+          svg += `  <text x="${(x+w*0.5).toFixed(1)}" y="${ly.toFixed(1)}" fill="${textColorHex}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="${n.fontWeight || '500'}" text-anchor="middle">${_escapeXML(rawLines[i])}</text>\n`;
+        }
+      } else {
+        svg += `  <text x="${(x+w*0.5).toFixed(1)}" y="${(y+h*0.5).toFixed(1)}" fill="#ffffff" font-family="Inter, sans-serif" font-size="14" font-weight="500" text-anchor="middle" dominant-baseline="central">${_escapeXML(n.text)}</text>\n`;
+      }
     }
 
     svg += `</svg>\n`;
