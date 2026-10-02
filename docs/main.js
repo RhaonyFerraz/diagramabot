@@ -862,9 +862,10 @@ class App {
     });
 
     // Shape buttons
-    document.querySelectorAll('.shape-btn').forEach(btn => {
+    document.querySelectorAll('.shape-btn[data-shape]').forEach(btn => {
       btn.addEventListener('click', () => {
         const type = btn.dataset.shape;
+        if (!type) return;
         const sizes = {
           terminator: [130, 50], process: [140, 60], decision: [140, 90],
           data: [150, 60], database: [130, 80], subprocess: [150, 60], note: [150, 80],
